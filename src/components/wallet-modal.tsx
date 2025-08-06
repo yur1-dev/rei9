@@ -73,7 +73,21 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
     if (isOpen && publicKey) {
       fetchBalance();
     }
-  }, [isOpen, publicKey]);
+  }, [isOpen, publicKey, connection]);
+
+  // Close modal on escape key
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener("keydown", handleEscape);
+      return () => document.removeEventListener("keydown", handleEscape);
+    }
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -85,19 +99,13 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
   return (
     <div
       className="fixed inset-0 z-50 flex h-screen items-center justify-center p-4 bg-black/75 backdrop-blur-sm"
-      style={{
-        animation: "none",
-        transition: "none",
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
       }}
     >
-      <div
-        className="bg-gray-900 rounded-2xl border border-gray-700 shadow-2xl w-full max-w-md relative overflow-hidden"
-        style={{
-          animation: "none",
-          transform: "none",
-          transition: "none",
-        }}
-      >
+      <div className="bg-gray-900 rounded-2xl border border-gray-700 shadow-2xl w-full max-w-md relative overflow-hidden">
         {/* Gradient Background */}
         <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-900 to-gray-800 opacity-90"></div>
 
@@ -161,7 +169,7 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
                   <button
                     onClick={fetchBalance}
                     disabled={isLoading}
-                    className="text-gray-400 hover:text-white transition-colors cursor-pointer p-1 rounded-full hover:bg-gray-700/50"
+                    className="text-gray-400 hover:text-white transition-colors cursor-pointer p-1 rounded-full hover:bg-gray-700/50 disabled:opacity-50"
                     aria-label="Refresh balance"
                   >
                     <RefreshCw

@@ -3,6 +3,7 @@
 import { useWallet as useSolanaAdapterWallet } from "@solana/wallet-adapter-react";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import type { PublicKey } from "@solana/web3.js";
+import type { WalletName } from "@solana/wallet-adapter-base";
 import type { CustomWalletInfo } from "@/types/wallet";
 
 interface UseSolanaWalletResult {
@@ -11,7 +12,7 @@ interface UseSolanaWalletResult {
   publicKey: PublicKey | null;
   connecting: boolean;
   disconnect: () => Promise<void>;
-  select: (walletName: string) => void;
+  select: (walletName: WalletName) => void;
   connect: () => Promise<void>;
   refreshBalance: () => Promise<void>;
   error: Error | null;
@@ -31,6 +32,7 @@ const getSolanaBalance = async (address: string): Promise<string> => {
         params: [address],
       }),
     });
+
     const data = await response.json();
     if (data.result && data.result.value !== undefined) {
       const balance = data.result.value / 1000000000;
@@ -50,8 +52,8 @@ export const useSolanaWallet = (): UseSolanaWalletResult => {
     disconnect,
     select,
     connecting,
-    wallet, // The connected wallet adapter
-    connect: adapterConnect, // Renamed to avoid conflict with our custom hook's connect
+    wallet,
+    connect: adapterConnect,
   } = useSolanaAdapterWallet();
 
   const [balance, setBalance] = useState<string>("0.0000");
@@ -62,6 +64,7 @@ export const useSolanaWallet = (): UseSolanaWalletResult => {
       try {
         const fetchedBalance = await getSolanaBalance(publicKey.toString());
         setBalance(fetchedBalance);
+        setCustomError(null);
       } catch (err) {
         console.error("Error refreshing balance:", err);
         setCustomError(err as Error);
@@ -73,20 +76,17 @@ export const useSolanaWallet = (): UseSolanaWalletResult => {
     if (connected && publicKey) {
       refreshBalance();
     } else {
-      setBalance("0.0000"); // Reset balance if disconnected
+      setBalance("0.0000");
     }
   }, [connected, publicKey, refreshBalance]);
 
-  // Combine adapter error with any custom errors
-  // You may handle custom errors here if needed, but adapterError is not available.
-  // If you want to handle errors from the wallet adapter, check its documentation for error events or states.
   const walletInfo: CustomWalletInfo | null = useMemo(() => {
     if (connected && publicKey && wallet) {
       return {
         address: publicKey.toString(),
         balance: balance,
         walletType: wallet.adapter.name,
-        networkName: "Solana Mainnet", // Hardcoded for now, can be dynamic
+        networkName: "Solana Mainnet",
         symbol: "SOL",
         explorer: "https://explorer.solana.com",
         publicKey: publicKey,
@@ -95,16 +95,18 @@ export const useSolanaWallet = (): UseSolanaWalletResult => {
     return null;
   }, [connected, publicKey, balance, wallet]);
 
-  // Wrap select to accept wallet name as string and check for wallet existence
+  // Fix: Use the correct type for wallet selection
   const selectWallet = useCallback(
-    (walletName: string) => {
-      if (wallet) {
+    (walletName: WalletName) => {
+      try {
         select(walletName);
-      } else {
-        console.warn("No wallet instance available to select.");
+        setCustomError(null);
+      } catch (err) {
+        console.error("Error selecting wallet:", err);
+        setCustomError(err as Error);
       }
     },
-    [select, wallet]
+    [select]
   );
 
   return {
@@ -114,7 +116,7 @@ export const useSolanaWallet = (): UseSolanaWalletResult => {
     connecting,
     disconnect,
     select: selectWallet,
-    connect: adapterConnect, // Expose the adapter's connect method
+    connect: adapterConnect,
     refreshBalance,
     error: customError,
   };

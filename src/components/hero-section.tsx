@@ -1,7 +1,6 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Zap, Send } from "lucide-react"; // Changed FileText to Send
 import { motion } from "framer-motion";
 import Image from "next/image"; // Import Next.js Image component
 
