@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { Button } from "@/components/ui/button";
@@ -27,7 +27,8 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
 
-  const fetchBalance = async () => {
+  // Fixed: Made fetchBalance a useCallback to include it in dependencies
+  const fetchBalance = useCallback(async () => {
     if (!publicKey || !connection) return;
     setIsLoading(true);
     try {
@@ -39,7 +40,7 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [publicKey, connection]);
 
   const copyToClipboard = async (text: string) => {
     try {
@@ -69,11 +70,12 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
     }
   };
 
+  // Fixed: Added fetchBalance to dependency array to resolve the warning
   useEffect(() => {
     if (isOpen && publicKey) {
       fetchBalance();
     }
-  }, [isOpen, publicKey, connection]);
+  }, [isOpen, publicKey, fetchBalance]);
 
   // Close modal on escape key
   useEffect(() => {
@@ -82,7 +84,6 @@ export function WalletModal({ isOpen, onClose }: WalletModalProps) {
         onClose();
       }
     };
-
     if (isOpen) {
       document.addEventListener("keydown", handleEscape);
       return () => document.removeEventListener("keydown", handleEscape);

@@ -8,6 +8,7 @@ import {
   useEffect,
   useCallback,
 } from "react";
+import { PublicKey } from "@solana/web3.js";
 import type { WalletInfo, WalletType } from "@/types/wallet";
 
 interface WalletContextType {
@@ -71,10 +72,12 @@ const connectPhantom = async (): Promise<WalletInfo> => {
       throw new Error("Failed to connect to Phantom wallet");
     }
     const address = response.publicKey.toString();
+    const publicKey = new PublicKey(address);
     const balance = await getSolanaBalance(address);
     console.log("✅ Phantom connected successfully!");
     return {
       address,
+      publicKey, // Now it's a proper PublicKey object
       balance,
       network: "solana",
       walletType: "Phantom",
@@ -111,10 +114,12 @@ const connectSolflare = async (): Promise<WalletInfo> => {
       throw new Error("Failed to connect to Solflare wallet");
     }
     const address = response.publicKey.toString();
+    const publicKey = new PublicKey(address);
     const balance = await getSolanaBalance(address);
     console.log("✅ Solflare connected successfully!");
     return {
       address,
+      publicKey, // Now it's a proper PublicKey object
       balance,
       network: "solana",
       walletType: "Solflare",
