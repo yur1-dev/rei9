@@ -59,7 +59,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
           </CardHeader>
           <CardContent className="space-y-6">
             <p className="text-gray-400 text-center">
-              Enter your Cipher Key to access REI9's AI Alpha Stream.
+              Enter your Cipher Key to access REI9&apos;s AI Alpha Stream.
             </p>
             <div className="space-y-4">
               <Input

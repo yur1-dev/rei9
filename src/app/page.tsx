@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { HeroSection } from "@/components/hero-section";
 // Removed: import { LoginSection } from "@/components/login-section"; // LoginSection is now a modal
 import { MainNavigation } from "@/components/main-navigation";
@@ -7,10 +8,13 @@ export default function Home() {
     <div className="min-h-screen bg-black text-white overflow-x-hidden">
       {/* Background Image - already set to cover the full screen */}
       <div className="fixed inset-0 z-0">
-        <img
+        <Image
           src="/placeholder.svg?height=1080&width=1920" // Using placeholder.svg
           alt="Abstract neon street art background"
+          width={1920}
+          height={1080}
           className="w-full h-full object-cover opacity-30" // object-cover makes it "big" and fills the space
+          priority
         />
         {/* Optional: Add a subtle overlay for better text readability */}
         <div className="absolute inset-0 bg-black/60" />

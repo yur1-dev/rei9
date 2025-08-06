@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletName } from "@solana/wallet-adapter-base";
-import { X } from "lucide-react";
+import Image from "next/image";
 import {
   Dialog,
   DialogContent,
@@ -39,17 +39,21 @@ export function CustomWalletSelectionModal({
     switch (walletName.toLowerCase()) {
       case "phantom":
         return (
-          <img
+          <Image
             src="/phantom.png"
             alt="Phantom Logo"
+            width={40}
+            height={40}
             className="w-10 h-10 rounded-full object-contain"
           />
         );
       case "metamask":
         return (
-          <img
+          <Image
             src="/metamask.png"
             alt="MetaMask Logo"
+            width={40}
+            height={40}
             className="w-10 h-10 rounded-full object-contain"
           />
         );
