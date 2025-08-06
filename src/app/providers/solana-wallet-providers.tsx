@@ -26,7 +26,6 @@ export function SolanaWalletAdapterProvider({
     () => [new PhantomWalletAdapter(), new SolflareWalletAdapter()],
     []
   );
-
   return (
     <ConnectionProvider endpoint={endpoint}>
       <SolanaWalletProvider wallets={wallets} autoConnect>

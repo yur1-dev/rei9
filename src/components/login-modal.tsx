@@ -5,7 +5,6 @@ import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Lock, AlertCircle } from "lucide-react";
-import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import {
   Dialog,
@@ -38,16 +37,20 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="bg-gray-900/70 border-green-500/20 backdrop-blur-sm rounded-sm w-full max-w-md p-0">
+      <DialogContent
+        className="bg-gray-900/70 border-green-500/20 backdrop-blur-sm rounded-sm w-full max-w-md p-0"
+        style={{
+          animation: "none",
+          transform: "none",
+          transition: "none",
+          animationDuration: "0s",
+          transitionDuration: "0s",
+        }}
+      >
         <DialogHeader>
           <DialogTitle className="sr-only">Access Protocol Login</DialogTitle>
         </DialogHeader>
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-          className="py-8 px-6"
-        >
+        <div className="py-8 px-6">
           <CardHeader className="text-center pb-4">
             <CardTitle className="text-white text-3xl font-black flex items-center justify-center gap-2 font-heading tracking-wide">
               <Lock className="w-7 h-7 text-gray-400" />
@@ -88,7 +91,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
               Cipher Keys are unique to your neural imprint.
             </p>
           </CardContent>
-        </motion.div>
+        </div>
       </DialogContent>
     </Dialog>
   );

@@ -1,89 +1,133 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { useWalletModal } from "@solana/wallet-adapter-react-ui";
+import { useWallet } from "@solana/wallet-adapter-react";
 import { Menu, X, Wallet } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
+import { WalletModal } from "@/components/wallet-modal"; // Import the WalletModal
 import { LoginModal } from "./login-modal"; // Import the LoginModal
+import { CustomWalletSelectionModal } from "./custom-wallet-selection-modal"; // Import the new custom modal
 
 export function MainNavigation() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false); // State for login modal
-  const { setVisible: setWalletModalVisible } = useWalletModal();
+  const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [isCustomWalletModalOpen, setIsCustomWalletModalOpen] = useState(false); // New state for custom wallet modal
+  const { connected, publicKey, connecting } = useWallet();
   const pathname = usePathname();
 
-  // Determine which connect button to show based on the current path
-  const showConnectToLoginButton = pathname === "/"; // Show "CONNECT" button on landing page
-  const showConnectPhantomButton = pathname === "/ai-alpha"; // Show "CONNECT PHANTOM" button on AI Alpha page
+  // Close custom wallet modal when wallet connects
+  useEffect(() => {
+    if (connected) {
+      setIsCustomWalletModalOpen(false);
+    }
+  }, [connected]);
 
   const handleConnectClick = () => {
-    setIsLoginModalOpen(true); // Open the login modal
+    if (connected) {
+      // If wallet is connected, always show wallet details modal
+      setIsWalletModalOpen(true);
+    } else if (pathname === "/") {
+      // If not connected AND on landing page, open login modal
+      setIsLoginModalOpen(true);
+    } else {
+      // If not connected AND not on landing page, show CUSTOM wallet modal to connect
+      setIsCustomWalletModalOpen(true);
+    }
+  };
+
+  const getConnectButtonText = () => {
+    if (connecting) {
+      return "CONNECTING...";
+    }
+    if (connected && publicKey) {
+      // Show shortened public key when connected
+      return `${publicKey.toString().slice(0, 4)}...${publicKey
+        .toString()
+        .slice(-4)}`;
+    }
+    // Different text based on current page
+    if (pathname === "/") return "CONNECT";
+    if (pathname === "/ai-alpha") return "CONNECT";
+    return "CONNECT WALLET";
+  };
+
+  const getButtonStyles = () => {
+    const baseStyles =
+      "px-6 py-2 font-bold uppercase tracking-wide text-sm border-2 transition-all duration-300 hover:scale-105 flex items-center";
+
+    if (connecting) {
+      return `${baseStyles} bg-yellow-500/20 border-yellow-400 text-yellow-400 cursor-not-allowed`;
+    }
+
+    if (pathname === "/") {
+      // Landing page style - vibrant gradient
+      return `${baseStyles} bg-gradient-to-r from-green-500 to-emerald-500 border-green-400 text-black hover:from-green-400 hover:to-emerald-400`;
+    } else if (connected) {
+      // Connected state - subtle green background
+      return `${baseStyles} bg-green-500/20 border-green-400 text-green-400 hover:bg-green-500/30`;
+    } else {
+      // Disconnected state - gradient background
+      return `${baseStyles} bg-gradient-to-r from-green-500 to-emerald-500 border-green-400 text-black hover:from-green-400 hover:to-emerald-400`;
+    }
   };
 
   return (
     <nav className="fixed top-0 w-full z-50 bg-black/90 backdrop-blur-md border-b border-green-500/20">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
-          {/* Logo: Changed to REI9 and applied font-heading */}
+          {/* Logo */}
           <div className="flex items-center">
             <div className="relative cursor-pointer">
               <div className="text-2xl font-black text-green-400 tracking-wider font-heading">
                 REI9
               </div>
-              <div className="absolute -bottom-1 left-0 w-full h-0.5 bg-gradient-to-r from-green-400 to-transparent"></div>
+              {/* <div className="absolute -bottom-1 left-0 w-full h-0.5 bg-gradient-to-r from-green-400 to-transparent"></div> */}
             </div>
           </div>
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
             <Button
               variant="ghost"
-              className="text-gray-300 hover:text-green-400 font-bold uppercase tracking-wide cursor-pointer"
+              className="text-gray-300 hover:text-green-400 font-bold uppercase tracking-wide transition-colors duration-200"
             >
               ABOUT
             </Button>
             <Button
               variant="ghost"
-              className="text-gray-300 hover:text-green-400 font-bold uppercase tracking-wide cursor-pointer"
+              className="text-gray-300 hover:text-green-400 font-bold uppercase tracking-wide transition-colors duration-200"
             >
               COLLECTION
             </Button>
             <Button
               variant="ghost"
-              className="text-gray-300 hover:text-green-400 font-bold uppercase tracking-wide cursor-pointer"
+              className="text-gray-300 hover:text-green-400 font-bold uppercase tracking-wide transition-colors duration-200"
             >
               SIGNALS
             </Button>
             <Button
               variant="ghost"
-              className="text-gray-300 hover:text-green-400 font-bold uppercase tracking-wide cursor-pointer"
+              className="text-gray-300 hover:text-green-400 font-bold uppercase tracking-wide transition-colors duration-200"
             >
               CREW
             </Button>
           </div>
-          {/* Right Side - Conditional Buttons */}
+          {/* Right Side - Single Unified Connect Button */}
           <div className="flex items-center space-x-4">
-            {showConnectToLoginButton && (
-              <Button
-                onClick={handleConnectClick} // Now opens the login modal
-                className="inline-flex items-center justify-center whitespace-nowrap rounded-sm text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-10 px-6 !bg-green-500 hover:!bg-green-400 !text-black !font-bold !border-2 !border-green-400 !uppercase !tracking-wide cursor-pointer"
-              >
-                CONNECT
-              </Button>
-            )}
-            {showConnectPhantomButton && (
-              <Button
-                onClick={() => setWalletModalVisible(true)} // Opens Solana wallet modal
-                className="inline-flex items-center justify-center whitespace-nowrap rounded-sm text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-10 px-6 !bg-purple-600 hover:!bg-purple-700 !text-white !font-bold !uppercase !tracking-wide cursor-pointer"
-              >
-                <Wallet className="w-4 h-4 mr-2" />
-                CONNECT
-              </Button>
-            )}
+            <button
+              onClick={handleConnectClick}
+              className={getButtonStyles()}
+              disabled={connecting}
+            >
+              <Wallet className="w-4 h-4 mr-2" />
+              {getConnectButtonText()}
+            </button>
+            {/* Mobile Menu Toggle */}
             <Button
               variant="ghost"
               size="sm"
-              className="md:hidden text-green-400 cursor-pointer"
+              className="md:hidden text-green-400 hover:text-green-300 transition-colors duration-200"
               onClick={() => setIsMenuOpen(!isMenuOpen)}
             >
               {isMenuOpen ? (
@@ -97,56 +141,56 @@ export function MainNavigation() {
       </div>
       {/* Mobile Menu */}
       {isMenuOpen && (
-        <div className="md:hidden bg-black border-t border-green-500/20">
+        <div className="md:hidden bg-black/95 backdrop-blur-md border-t border-green-500/20">
           <div className="container mx-auto px-4 py-4 space-y-2">
             <Button
               variant="ghost"
-              className="w-full text-left text-gray-300 hover:text-green-400 font-bold uppercase cursor-pointer"
+              className="w-full text-left text-gray-300 hover:text-green-400 font-bold uppercase transition-colors duration-200"
             >
               ABOUT
             </Button>
             <Button
               variant="ghost"
-              className="w-full text-left text-gray-300 hover:text-green-400 font-bold uppercase cursor-pointer"
+              className="w-full text-left text-gray-300 hover:text-green-400 font-bold uppercase transition-colors duration-200"
             >
               COLLECTION
             </Button>
             <Button
               variant="ghost"
-              className="w-full text-left text-gray-300 hover:text-green-400 font-bold uppercase cursor-pointer"
+              className="w-full text-left text-gray-300 hover:text-green-400 font-bold uppercase transition-colors duration-200"
             >
               SIGNALS
             </Button>
             <Button
               variant="ghost"
-              className="w-full text-left text-gray-300 hover:text-green-400 font-bold uppercase cursor-pointer"
+              className="w-full text-left text-gray-300 hover:text-green-400 font-bold uppercase transition-colors duration-200"
             >
               CREW
             </Button>
-            {showConnectToLoginButton && ( // Added for mobile menu
-              <Button
-                onClick={handleConnectClick} // Now opens the login modal
-                className="w-full text-left inline-flex items-center justify-center whitespace-nowrap rounded-sm text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-10 px-6 !bg-green-500 hover:!bg-green-400 !text-black !font-bold !border-2 !border-green-400 !uppercase !tracking-wide cursor-pointer"
-              >
-                CONNECT
-              </Button>
-            )}
-            {showConnectPhantomButton && ( // Added for mobile menu
-              <Button
-                onClick={() => setWalletModalVisible(true)}
-                className="w-full text-left !bg-purple-600 hover:!bg-purple-700 !text-white !font-bold !uppercase !tracking-wide cursor-pointer"
-              >
-                <Wallet className="w-4 h-4 mr-2" />
-                CONNECT
-              </Button>
-            )}
+            {/* Mobile Connect Button */}
+            <button
+              onClick={handleConnectClick}
+              className={`${getButtonStyles()} w-full justify-start`}
+              disabled={connecting}
+            >
+              <Wallet className="w-4 h-4 mr-2" />
+              {getConnectButtonText()}
+            </button>
           </div>
         </div>
       )}
-      {/* Render the LoginModal here, controlled by state */}
+      {/* Modals */}
+      <WalletModal
+        isOpen={isWalletModalOpen}
+        onClose={() => setIsWalletModalOpen(false)}
+      />
       <LoginModal
         isOpen={isLoginModalOpen}
         onClose={() => setIsLoginModalOpen(false)}
+      />
+      <CustomWalletSelectionModal
+        isOpen={isCustomWalletModalOpen}
+        onClose={() => setIsCustomWalletModalOpen(false)}
       />
     </nav>
   );

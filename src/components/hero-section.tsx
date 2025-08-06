@@ -41,17 +41,15 @@ export function HeroSection() {
           className="flex flex-col sm:flex-row justify-center gap-4"
         >
           {/* TRADE Button - Brighter green with stronger glow */}
-          <Button className="bg-green-400 hover:bg-green-500 text-black font-bold px-8 py-3 rounded-sm text-lg shadow-[0_0_30px_rgba(34,197,94,0.6)] cursor-pointer">
-            <Zap className="w-5 h-5 mr-2" />
-            TRADE
+          <Button className="bg-green-400 border-2 hover:bg-green-500 text-black font-bold px-8 py-5 text-lg shadow-[0_0_30px_rgba(34,197,94,0.6)] cursor-pointer">
+            Trade
           </Button>
           {/* TELEGRAM Button - Dark background with green border and white text */}
           <Button
             variant="outline"
-            className="bg-gray-900 border-2 border-green-500 text-white hover:bg-gray-800 font-bold px-8 py-3 rounded-sm text-lg cursor-pointer"
+            className="bg-gray-900 border-2 border-green-500 text-white hover:bg-gray-800 font-bold px-8 py-5 text-lg cursor-pointer"
           >
-            <Send className="w-5 h-5 mr-2" />
-            TELEGRAM
+            X Follow
           </Button>
         </motion.div>
       </div>
