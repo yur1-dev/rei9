@@ -2,8 +2,10 @@ import type React from "react";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { Bebas_Neue } from "next/font/google";
-import "./globals.css"; // Corrected import path
+import "./globals.css";
 import { WalletProvider } from "@/components/wallet-provider";
+import { AuthProvider } from "@/context/auth-context";
+import { AuthGuard } from "@/components/auth-guard";
 
 // If loading a variable font, you don't need to specify the font weight
 const inter = Inter({
@@ -19,9 +21,10 @@ const bebasNeue = Bebas_Neue({
 });
 
 export const metadata: Metadata = {
-  title: "rei9.trade - AI-Powered Alpha for Elite Meme Traders",
+  title:
+    "rei9.trade - AI-Powered Alpha for Elite Meme Traders - Private Access",
   description:
-    "Underground Solana trading platform. Raw alpha from the streets. No suits, no BS.",
+    "Underground Solana trading platform. Raw alpha from the streets. No suits, no BS. Private members only.",
 };
 
 export default function RootLayout({
@@ -32,7 +35,11 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${bebasNeue.variable} dark`}>
       <body className={inter.className}>
-        <WalletProvider>{children}</WalletProvider>
+        <AuthProvider>
+          <AuthGuard>
+            <WalletProvider>{children}</WalletProvider>
+          </AuthGuard>
+        </AuthProvider>
       </body>
     </html>
   );

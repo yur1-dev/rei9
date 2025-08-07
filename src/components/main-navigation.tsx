@@ -8,6 +8,7 @@ import { usePathname } from "next/navigation";
 import { WalletModal } from "@/components/wallet-modal"; // Import the WalletModal
 import { LoginModal } from "./login-modal"; // Import the LoginModal
 import { CustomWalletSelectionModal } from "./custom-wallet-selection-modal"; // Import the new custom modal
+import Link from "next/link";
 
 export function MainNavigation() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -48,14 +49,14 @@ export function MainNavigation() {
         .slice(-4)}`;
     }
     // Different text based on current page
-    if (pathname === "/") return "CONNECT";
+    if (pathname === "/") return "REI STREET";
     if (pathname === "/ai-alpha") return "CONNECT";
     return "CONNECT WALLET";
   };
 
   const getButtonStyles = () => {
     const baseStyles =
-      "px-6 py-2 font-bold uppercase tracking-wide text-sm border-2 transition-all duration-300 hover:scale-105 flex items-center";
+      "px-6 py-2 font-bold uppercase tracking-wide text-sm border-2 transition-all duration-300 hover:scale-105 flex items-center cursor-pointer";
 
     if (connecting) {
       return `${baseStyles} bg-yellow-500/20 border-yellow-400 text-yellow-400 cursor-not-allowed`;
@@ -81,7 +82,11 @@ export function MainNavigation() {
           <div className="flex items-center">
             <div className="relative cursor-pointer">
               <div className="text-2xl font-black text-green-400 tracking-wider font-heading">
-                REI9
+                <Link href="/" className="relative cursor-pointer">
+                  <div className="text-2xl font-black text-green-400 tracking-wider font-heading">
+                    REI9
+                  </div>
+                </Link>
               </div>
               {/* <div className="absolute -bottom-1 left-0 w-full h-0.5 bg-gradient-to-r from-green-400 to-transparent"></div> */}
             </div>
@@ -90,25 +95,25 @@ export function MainNavigation() {
           <div className="hidden md:flex items-center space-x-8">
             <Button
               variant="ghost"
-              className="text-gray-300 hover:text-green-400 font-bold uppercase tracking-wide transition-colors duration-200"
+              className="text-gray-300 hover:text-green-400 font-bold uppercase tracking-wide transition-colors duration-200 cursor-pointer"
             >
               ABOUT
             </Button>
             <Button
               variant="ghost"
-              className="text-gray-300 hover:text-green-400 font-bold uppercase tracking-wide transition-colors duration-200"
+              className="text-gray-300 hover:text-green-400 font-bold uppercase tracking-wide transition-colors duration-200 cursor-pointer"
             >
               COLLECTION
             </Button>
             <Button
               variant="ghost"
-              className="text-gray-300 hover:text-green-400 font-bold uppercase tracking-wide transition-colors duration-200"
+              className="text-gray-300 hover:text-green-400 font-bold uppercase tracking-wide transition-colors duration-200 cursor-pointer"
             >
               SIGNALS
             </Button>
             <Button
               variant="ghost"
-              className="text-gray-300 hover:text-green-400 font-bold uppercase tracking-wide transition-colors duration-200"
+              className="text-gray-300 hover:text-green-400 font-bold uppercase tracking-wide transition-colors duration-200 cursor-pointer"
             >
               CREW
             </Button>
@@ -127,7 +132,7 @@ export function MainNavigation() {
             <Button
               variant="ghost"
               size="sm"
-              className="md:hidden text-green-400 hover:text-green-300 transition-colors duration-200"
+              className="md:hidden text-green-400 hover:text-green-300 transition-colors duration-200 cursor-pointer"
               onClick={() => setIsMenuOpen(!isMenuOpen)}
             >
               {isMenuOpen ? (
@@ -145,25 +150,25 @@ export function MainNavigation() {
           <div className="container mx-auto px-4 py-4 space-y-2">
             <Button
               variant="ghost"
-              className="w-full text-left text-gray-300 hover:text-green-400 font-bold uppercase transition-colors duration-200"
+              className="w-full text-left text-gray-300 hover:text-green-400 font-bold uppercase transition-colors duration-200 cursor-pointer"
             >
               ABOUT
             </Button>
             <Button
               variant="ghost"
-              className="w-full text-left text-gray-300 hover:text-green-400 font-bold uppercase transition-colors duration-200"
+              className="w-full text-left text-gray-300 hover:text-green-400 font-bold uppercase transition-colors duration-200 cursor-pointer"
             >
               COLLECTION
             </Button>
             <Button
               variant="ghost"
-              className="w-full text-left text-gray-300 hover:text-green-400 font-bold uppercase transition-colors duration-200"
+              className="w-full text-left text-gray-300 hover:text-green-400 font-bold uppercase transition-colors duration-200 cursor-pointer"
             >
               SIGNALS
             </Button>
             <Button
               variant="ghost"
-              className="w-full text-left text-gray-300 hover:text-green-400 font-bold uppercase transition-colors duration-200"
+              className="w-full text-left text-gray-300 hover:text-green-400 font-bold uppercase transition-colors duration-200 cursor-pointer"
             >
               CREW
             </Button>
