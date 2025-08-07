@@ -4,7 +4,7 @@ import { useState } from "react";
 import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Lock, AlertCircle, X } from "lucide-react";
+import { Lock, AlertCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import {
@@ -101,7 +101,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
 
           <CardContent className="space-y-6">
             <p className="text-gray-400 text-center">
-              Enter your Cipher Key to access REI9's AI Alpha Street.
+              Enter your Cipher Key to access REI9&apos;s AI Alpha Street.
             </p>
 
             <div className="space-y-4">
