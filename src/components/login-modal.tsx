@@ -44,12 +44,12 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
         setPassword("");
         onClose(); // Close the modal on successful login
 
-        // Navigate to ai-alpha page after successful login
-        router.push("/ai-alpha");
+        // Navigate to dashboard page after successful login
+        router.push("/dashboard");
 
         // Small delay then refresh to ensure auth state is updated
         setTimeout(() => {
-          window.location.href = "/ai-alpha";
+          window.location.href = "/dashboard";
         }, 100);
       } else {
         setError("Access Denied. Invalid Cipher.");

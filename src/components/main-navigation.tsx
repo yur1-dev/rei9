@@ -5,20 +5,19 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { Menu, X, Wallet } from "lucide-react";
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
-import { WalletModal } from "@/components/wallet-modal"; // Import the WalletModal
-import { LoginModal } from "./login-modal"; // Import the LoginModal
-import { CustomWalletSelectionModal } from "./custom-wallet-selection-modal"; // Import the new custom modal
+import { WalletModal } from "@/components/wallet-modal";
+import { LoginModal } from "./login-modal";
+import { CustomWalletSelectionModal } from "./custom-wallet-selection-modal";
 import Link from "next/link";
 
 export function MainNavigation() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
-  const [isCustomWalletModalOpen, setIsCustomWalletModalOpen] = useState(false); // New state for custom wallet modal
+  const [isCustomWalletModalOpen, setIsCustomWalletModalOpen] = useState(false);
   const { connected, publicKey, connecting } = useWallet();
   const pathname = usePathname();
 
-  // Close custom wallet modal when wallet connects
   useEffect(() => {
     if (connected) {
       setIsCustomWalletModalOpen(false);
@@ -27,14 +26,11 @@ export function MainNavigation() {
 
   const handleConnectClick = () => {
     if (connected) {
-      // If wallet is connected, always show wallet details modal
-      setIsWalletModalOpen(true);
+      setIsWalletModalOpen(true); // Show wallet details when already connected
     } else if (pathname === "/") {
-      // If not connected AND on landing page, open login modal
-      setIsLoginModalOpen(true);
+      setIsLoginModalOpen(true); // Show login modal on home page
     } else {
-      // If not connected AND not on landing page, show CUSTOM wallet modal to connect
-      setIsCustomWalletModalOpen(true);
+      setIsCustomWalletModalOpen(true); // Show wallet selection modal to connect
     }
   };
 
@@ -43,40 +39,33 @@ export function MainNavigation() {
       return "CONNECTING...";
     }
     if (connected && publicKey) {
-      // Show shortened public key when connected
       return `${publicKey.toString().slice(0, 4)}...${publicKey
         .toString()
         .slice(-4)}`;
     }
-    // Different text based on current page
     if (pathname === "/") return "REI STREET";
     if (pathname === "/ai-alpha") return "CONNECT";
-    return "CONNECT WALLET";
+    return "CONNECT";
   };
 
   const getButtonStyles = () => {
     const baseStyles =
       "px-6 py-2 font-bold uppercase tracking-wide text-sm border-2 transition-all duration-300 hover:scale-105 flex items-center cursor-pointer";
-
     if (connecting) {
       return `${baseStyles} bg-yellow-500/20 border-yellow-400 text-yellow-400 cursor-not-allowed`;
     }
-
     if (pathname === "/") {
-      // Landing page style - vibrant gradient
       return `${baseStyles} bg-gradient-to-r from-green-500 to-emerald-500 border-green-400 text-black hover:from-green-400 hover:to-emerald-400`;
     } else if (connected) {
-      // Connected state - subtle green background
       return `${baseStyles} bg-green-500/20 border-green-400 text-green-400 hover:bg-green-500/30`;
     } else {
-      // Disconnected state - gradient background
       return `${baseStyles} bg-gradient-to-r from-green-500 to-emerald-500 border-green-400 text-black hover:from-green-400 hover:to-emerald-400`;
     }
   };
 
   return (
     <nav className="fixed top-0 w-full z-50 bg-black/90 backdrop-blur-md border-b border-green-500/20">
-      <div className="container mx-auto px-4">
+      <div className="max-w-7xl mx-auto px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <div className="flex items-center">
@@ -88,10 +77,10 @@ export function MainNavigation() {
                   </div>
                 </Link>
               </div>
-              {/* <div className="absolute -bottom-1 left-0 w-full h-0.5 bg-gradient-to-r from-green-400 to-transparent"></div> */}
             </div>
           </div>
-          {/* Desktop Navigation */}
+
+          {/* Desktop Navigation - Original Hero/Landing Links */}
           <div className="hidden md:flex items-center space-x-8">
             <Button
               variant="ghost"
@@ -118,6 +107,7 @@ export function MainNavigation() {
               CREW
             </Button>
           </div>
+
           {/* Right Side - Single Unified Connect Button */}
           <div className="flex items-center space-x-4">
             <button
@@ -128,6 +118,7 @@ export function MainNavigation() {
               <Wallet className="w-4 h-4 mr-2" />
               {getConnectButtonText()}
             </button>
+
             {/* Mobile Menu Toggle */}
             <Button
               variant="ghost"
@@ -144,10 +135,11 @@ export function MainNavigation() {
           </div>
         </div>
       </div>
-      {/* Mobile Menu */}
+
+      {/* Mobile Menu - Original Hero/Landing Links */}
       {isMenuOpen && (
         <div className="md:hidden bg-black/95 backdrop-blur-md border-t border-green-500/20">
-          <div className="container mx-auto px-4 py-4 space-y-2">
+          <div className="max-w-7xl mx-auto px-6 lg:px-8 py-4 space-y-2">
             <Button
               variant="ghost"
               className="w-full text-left text-gray-300 hover:text-green-400 font-bold uppercase transition-colors duration-200 cursor-pointer"
@@ -172,6 +164,7 @@ export function MainNavigation() {
             >
               CREW
             </Button>
+
             {/* Mobile Connect Button */}
             <button
               onClick={handleConnectClick}
@@ -184,6 +177,7 @@ export function MainNavigation() {
           </div>
         </div>
       )}
+
       {/* Modals */}
       <WalletModal
         isOpen={isWalletModalOpen}

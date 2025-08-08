@@ -1,8 +1,9 @@
 "use client";
+
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import Image from "next/image";
-import { Zap } from "lucide-react"; // Import icons
+import { Zap } from "lucide-react";
 
 const XLogo = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 24 24" className={className} fill="currentColor">
@@ -18,8 +19,8 @@ const TelegramLogo = ({ className }: { className?: string }) => (
 
 export function HeroSection() {
   return (
-    <div className="relative min-h-[calc(60vh)] flex items-center justify-center text-center py-12 px-4">
-      <div className="relative z-10 max-w-4xl mx-auto">
+    <div className="relative min-h-[calc(60vh)] flex items-center justify-center text-center py-12 px-6 lg:px-8">
+      <div className="relative z-10 max-w-5xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
