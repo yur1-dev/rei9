@@ -1,3 +1,51 @@
+// Type definitions for WebSocket messages
+interface TokenData {
+  mint: string;
+  name: string;
+  symbol: string;
+  description?: string;
+  image_uri?: string;
+  metadata_uri?: string;
+  twitter?: string;
+  telegram?: string;
+  website?: string;
+  bonding_curve?: string;
+  associated_bonding_curve?: string;
+  creator?: string;
+  created_timestamp?: number;
+  complete?: boolean;
+  virtual_sol_reserves?: number;
+  virtual_token_reserves?: number;
+  total_supply?: number;
+  market_cap?: number;
+  reply_count?: number;
+  nsfw?: boolean;
+  is_currently_live?: boolean;
+  usd_market_cap?: number;
+}
+
+interface TradeData {
+  signature: string;
+  mint: string;
+  [key: string]: unknown;
+}
+
+interface WebSocketMessage {
+  method?: string;
+  keys?: string[];
+  mint?: string;
+  name?: string;
+  symbol?: string;
+  signature?: string;
+  type?: string;
+  [key: string]: unknown;
+}
+
+interface WebSocketPayload {
+  method: string;
+  keys?: string[];
+}
+
 // PumpPortal WebSocket Integration for Real-time Data
 export class PumpPortalWebSocket {
   private ws: WebSocket | null = null;
@@ -7,8 +55,8 @@ export class PumpPortalWebSocket {
   private isConnecting = false;
 
   constructor(
-    private onNewToken: (token: any) => void,
-    private onTokenTrade: (trade: any) => void,
+    private onNewToken: (token: TokenData) => void,
+    private onTokenTrade: (trade: TradeData) => void,
     private onConnectionChange: (connected: boolean) => void,
     private onError: (error: string) => void
   ) {}
@@ -42,7 +90,7 @@ export class PumpPortalWebSocket {
 
       this.ws.onmessage = (event) => {
         try {
-          const data = JSON.parse(event.data);
+          const data: WebSocketMessage = JSON.parse(event.data);
           this.handleMessage(data);
         } catch (error) {
           console.error("❌ Error parsing WebSocket message:", error);
@@ -74,7 +122,7 @@ export class PumpPortalWebSocket {
 
   private subscribe(method: string, keys?: string[]) {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      const payload: any = { method };
+      const payload: WebSocketPayload = { method };
       if (keys) {
         payload.keys = keys;
       }
@@ -87,7 +135,7 @@ export class PumpPortalWebSocket {
     }
   }
 
-  private handleMessage(data: any) {
+  private handleMessage(data: WebSocketMessage) {
     try {
       // Handle new token creation
       if (data.mint && data.name && data.symbol) {
@@ -96,32 +144,37 @@ export class PumpPortalWebSocket {
           mint: data.mint,
           name: data.name,
           symbol: data.symbol,
-          description: data.description || "",
-          image_uri: data.image_uri || "",
-          metadata_uri: data.metadata_uri || "",
-          twitter: data.twitter,
-          telegram: data.telegram,
-          website: data.website,
-          bonding_curve: data.bonding_curve,
-          associated_bonding_curve: data.associated_bonding_curve,
-          creator: data.creator,
-          created_timestamp: data.created_timestamp || Date.now(),
-          complete: data.complete || false,
-          virtual_sol_reserves: data.virtual_sol_reserves || 0,
-          virtual_token_reserves: data.virtual_token_reserves || 0,
-          total_supply: data.total_supply || 1000000000,
-          market_cap: data.market_cap || 0,
+          description: (data.description as string) || "",
+          image_uri: (data.image_uri as string) || "",
+          metadata_uri: (data.metadata_uri as string) || "",
+          twitter: data.twitter as string,
+          telegram: data.telegram as string,
+          website: data.website as string,
+          bonding_curve: data.bonding_curve as string,
+          associated_bonding_curve: data.associated_bonding_curve as string,
+          creator: data.creator as string,
+          created_timestamp: (data.created_timestamp as number) || Date.now(),
+          complete: (data.complete as boolean) || false,
+          virtual_sol_reserves: (data.virtual_sol_reserves as number) || 0,
+          virtual_token_reserves: (data.virtual_token_reserves as number) || 0,
+          total_supply: (data.total_supply as number) || 1000000000,
+          market_cap: (data.market_cap as number) || 0,
           reply_count: 0,
-          nsfw: data.nsfw || false,
+          nsfw: (data.nsfw as boolean) || false,
           is_currently_live: true,
-          usd_market_cap: data.usd_market_cap || data.market_cap || 0,
+          usd_market_cap:
+            (data.usd_market_cap as number) || (data.market_cap as number) || 0,
         });
       }
 
       // Handle token trades
       if (data.signature && data.mint) {
         console.log("💰 Token trade detected:", data.mint);
-        this.onTokenTrade(data);
+        this.onTokenTrade({
+          signature: data.signature,
+          mint: data.mint,
+          ...data,
+        });
       }
 
       // Handle migration events

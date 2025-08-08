@@ -1,6 +1,78 @@
 import { NextResponse } from "next/server";
 import { TokenData } from "@/types/token";
 
+// Type definitions for API responses
+interface PumpFunToken {
+  mint?: string;
+  name?: string;
+  symbol?: string;
+  description?: string;
+  image_uri?: string;
+  metadata_uri?: string;
+  bonding_curve?: string;
+  associated_bonding_curve?: string;
+  creator?: string;
+  created_timestamp?: number;
+  complete?: boolean;
+  virtual_sol_reserves?: number;
+  virtual_token_reserves?: number;
+  total_supply?: number;
+  market_cap?: number;
+  reply_count?: number;
+  nsfw?: boolean;
+  usd_market_cap?: number;
+  twitter?: string;
+  telegram?: string;
+  website?: string;
+}
+
+interface DexScreenerSocial {
+  platform: string;
+  handle?: string;
+}
+
+interface DexScreenerTokenInfo {
+  imageUrl?: string;
+  websites?: Array<{ url: string }>;
+  socials?: DexScreenerSocial[];
+}
+
+interface DexScreenerPair {
+  chainId?: string;
+  dexId?: string;
+  baseToken?: {
+    address?: string;
+    name?: string;
+    symbol?: string;
+  };
+  pairCreatedAt?: number;
+  liquidity?: {
+    base?: number;
+  };
+  marketCap?: number;
+  fdv?: number;
+  txns?: {
+    h24?: {
+      buys?: number;
+      sells?: number;
+    };
+  };
+  info?: DexScreenerTokenInfo;
+}
+
+interface DexScreenerBoost {
+  chainId?: string;
+  tokenAddress?: string;
+  description?: string;
+  icon?: string;
+  totalAmount?: number;
+  url?: string;
+}
+
+interface DexScreenerSearchResponse {
+  pairs?: DexScreenerPair[];
+}
+
 // Working API endpoints
 const PUMP_API_BASE = "https://frontend-api.pump.fun";
 const DEXSCREENER_BASE = "https://api.dexscreener.com";
@@ -31,7 +103,7 @@ async function fetchRealPumpTokens(): Promise<TokenData[]> {
       throw new Error(`HTTP ${response.status}`);
     }
 
-    const data = await response.json();
+    const data: PumpFunToken[] = await response.json();
 
     if (!Array.isArray(data)) {
       console.error("❌ Invalid response format from Pump.fun");
@@ -40,7 +112,7 @@ async function fetchRealPumpTokens(): Promise<TokenData[]> {
 
     console.log(`✅ SUCCESS: Got ${data.length} REAL tokens from Pump.fun`);
 
-    return data.map((token: any) => ({
+    return data.map((token: PumpFunToken) => ({
       mint: token.mint || `unknown_${Date.now()}`,
       name: token.name || "Unknown Token",
       symbol: token.symbol || "UNK",
@@ -89,7 +161,7 @@ async function fetchFromDexScreener(): Promise<TokenData[]> {
       );
 
       if (boostedResponse.ok) {
-        const boostedData = await boostedResponse.json();
+        const boostedData: DexScreenerBoost[] = await boostedResponse.json();
         console.log(
           `✅ DexScreener boosted tokens: ${
             Array.isArray(boostedData) ? boostedData.length : 0
@@ -110,7 +182,8 @@ async function fetchFromDexScreener(): Promise<TokenData[]> {
                 );
 
                 if (pairResponse.ok) {
-                  const pairData = await pairResponse.json();
+                  const pairData: { pairs?: DexScreenerPair[] } =
+                    await pairResponse.json();
                   if (pairData.pairs && Array.isArray(pairData.pairs)) {
                     for (const pair of pairData.pairs.slice(0, 1)) {
                       // Max 1 pair per token
@@ -142,21 +215,23 @@ async function fetchFromDexScreener(): Promise<TokenData[]> {
                         is_currently_live: true,
                         usd_market_cap: pair.marketCap || pair.fdv || 0,
                         twitter: pair.info?.socials?.find(
-                          (s: any) => s.platform === "twitter"
+                          (s: DexScreenerSocial) => s.platform === "twitter"
                         )?.handle
                           ? `https://twitter.com/${
                               pair.info.socials.find(
-                                (s: any) => s.platform === "twitter"
-                              ).handle
+                                (s: DexScreenerSocial) =>
+                                  s.platform === "twitter"
+                              )?.handle
                             }`
                           : undefined,
                         telegram: pair.info?.socials?.find(
-                          (s: any) => s.platform === "telegram"
+                          (s: DexScreenerSocial) => s.platform === "telegram"
                         )?.handle
                           ? `https://t.me/${
                               pair.info.socials.find(
-                                (s: any) => s.platform === "telegram"
-                              ).handle
+                                (s: DexScreenerSocial) =>
+                                  s.platform === "telegram"
+                              )?.handle
                             }`
                           : undefined,
                         website: pair.info?.websites?.[0]?.url,
@@ -189,7 +264,8 @@ async function fetchFromDexScreener(): Promise<TokenData[]> {
       );
 
       if (searchResponse.ok) {
-        const searchData = await searchResponse.json();
+        const searchData: DexScreenerSearchResponse =
+          await searchResponse.json();
         console.log(
           `✅ DexScreener search results: ${searchData.pairs?.length || 0}`
         );
@@ -199,7 +275,7 @@ async function fetchFromDexScreener(): Promise<TokenData[]> {
             // Get top 25 from search
             if (pair.chainId === "solana" && pair.baseToken?.address) {
               // Avoid duplicates
-              if (!allTokens.find((t) => t.mint === pair.baseToken.address)) {
+              if (!allTokens.find((t) => t.mint === pair.baseToken?.address)) {
                 allTokens.push({
                   mint: pair.baseToken.address,
                   name: pair.baseToken.name || "DexScreener Token",
@@ -225,21 +301,21 @@ async function fetchFromDexScreener(): Promise<TokenData[]> {
                   is_currently_live: true,
                   usd_market_cap: pair.marketCap || pair.fdv || 0,
                   twitter: pair.info?.socials?.find(
-                    (s: any) => s.platform === "twitter"
+                    (s: DexScreenerSocial) => s.platform === "twitter"
                   )?.handle
                     ? `https://twitter.com/${
                         pair.info.socials.find(
-                          (s: any) => s.platform === "twitter"
-                        ).handle
+                          (s: DexScreenerSocial) => s.platform === "twitter"
+                        )?.handle
                       }`
                     : undefined,
                   telegram: pair.info?.socials?.find(
-                    (s: any) => s.platform === "telegram"
+                    (s: DexScreenerSocial) => s.platform === "telegram"
                   )?.handle
                     ? `https://t.me/${
                         pair.info.socials.find(
-                          (s: any) => s.platform === "telegram"
-                        ).handle
+                          (s: DexScreenerSocial) => s.platform === "telegram"
+                        )?.handle
                       }`
                     : undefined,
                   website: pair.info?.websites?.[0]?.url,
@@ -275,7 +351,7 @@ async function fetchTopBoostedTokens(): Promise<TokenData[]> {
       throw new Error(`DexScreener top boosts failed: ${response.status}`);
     }
 
-    const data = await response.json();
+    const data: DexScreenerBoost[] = await response.json();
     console.log(
       `✅ DexScreener top boosted: ${Array.isArray(data) ? data.length : 0}`
     );
