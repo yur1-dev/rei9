@@ -1,15 +1,9 @@
 import { TokenData, TokenCategory } from "@/types/token";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
-  ExternalLink,
-  Twitter,
-  MessageCircle,
   Zap,
   TrendingUp,
   Dice6,
-  Globe,
   Star,
   Users,
   Copy,
@@ -20,6 +14,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { TradeButtonWithModal } from "../trade-modal";
+import Image from "next/image";
 
 interface TokenCardProps {
   token: TokenData;
@@ -130,17 +125,19 @@ export function TokenCard({ token, category }: TokenCardProps) {
   const metrics = getPerformanceMetrics();
 
   // Social media icon component with conditional rendering and tooltips
+  interface SocialIconProps {
+    icon: React.ComponentType<{ className?: string }>;
+    href?: string;
+    label: string;
+    available: boolean;
+  }
+
   const SocialIcon = ({
     icon: Icon,
     href,
     label,
     available,
-  }: {
-    icon: any;
-    href?: string;
-    label: string;
-    available: boolean;
-  }) => {
+  }: SocialIconProps) => {
     if (available && href) {
       return (
         <a
@@ -190,9 +187,11 @@ export function TokenCard({ token, category }: TokenCardProps) {
               {/* SHARP SQUARE TOKEN IMAGE - NO ROUNDED CORNERS */}
               <div className="w-12 h-12 sm:w-14 sm:h-14 overflow-hidden bg-gray-800/50 border border-gray-600/30 relative flex-shrink-0">
                 {token.image_uri && !imageError ? (
-                  <img
+                  <Image
                     src={token.image_uri || "/placeholder.svg"}
                     alt={token.name}
+                    width={56}
+                    height={56}
                     className="w-full h-full object-cover"
                     onError={() => setImageError(true)}
                   />

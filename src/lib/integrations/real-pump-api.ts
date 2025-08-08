@@ -4,12 +4,6 @@ import { TokenData } from "@/types/token";
 const PUMP_API_BASE = "https://frontend-api.pump.fun";
 const PUMP_WS_URL = "wss://pumpportal.fun/api/data";
 
-// Solana Stream API
-const SOLANA_STREAM_WS = "wss://api.solanastream.xyz/ws";
-
-// KOL Scan API
-const KOLSCAN_API = "https://api.kolscan.io";
-
 export interface PumpFunToken {
   mint: string;
   name: string;
@@ -34,6 +28,30 @@ export interface PumpFunToken {
   reply_count: number;
   nsfw: boolean;
   usd_market_cap: number;
+}
+
+interface WebSocketMessage {
+  type: string;
+  mint?: string;
+  name?: string;
+  symbol?: string;
+  description?: string;
+  image_uri?: string;
+  metadata_uri?: string;
+  twitter?: string;
+  telegram?: string;
+  bonding_curve?: string;
+  associated_bonding_curve?: string;
+  creator?: string;
+  created_timestamp?: number;
+  virtual_sol_reserves?: number;
+  virtual_token_reserves?: number;
+  total_supply?: number;
+  website?: string;
+  show_name?: boolean;
+  market_cap?: number;
+  nsfw?: boolean;
+  usd_market_cap?: number;
 }
 
 // Fetch initial tokens from Pump.fun
@@ -152,28 +170,28 @@ export class RealTimeTokenStream {
     }
   }
 
-  private handleWebSocketMessage(data: any) {
+  private handleWebSocketMessage(data: WebSocketMessage) {
     if (data.type === "new_token") {
       // Handle new token creation
       const newToken: TokenData = {
-        mint: data.mint,
-        name: data.name,
-        symbol: data.symbol,
+        mint: data.mint || "",
+        name: data.name || "",
+        symbol: data.symbol || "",
         description: data.description || "",
         image_uri: data.image_uri || "",
         metadata_uri: data.metadata_uri || "",
         twitter: data.twitter,
         telegram: data.telegram,
-        bonding_curve: data.bonding_curve,
-        associated_bonding_curve: data.associated_bonding_curve,
-        creator: data.creator,
-        created_timestamp: data.created_timestamp,
+        bonding_curve: data.bonding_curve || "",
+        associated_bonding_curve: data.associated_bonding_curve || "",
+        creator: data.creator || "",
+        created_timestamp: data.created_timestamp || Date.now(),
         complete: false,
         virtual_sol_reserves: data.virtual_sol_reserves || 0,
         virtual_token_reserves: data.virtual_token_reserves || 0,
         total_supply: data.total_supply || 0,
         website: data.website,
-        show_name: data.show_name || true,
+        show_name: data.show_name ?? true,
         market_cap: data.market_cap || 0,
         reply_count: 0,
         nsfw: data.nsfw || false,
@@ -229,7 +247,6 @@ export function categorizeTokens(tokens: TokenData[]): {
   const sortedByMarketCap = [...tokens].sort(
     (a, b) => b.usd_market_cap - a.usd_market_cap
   );
-  const now = Date.now();
 
   // Highest Gainer: High market cap tokens (> $50K)
   const highestGainer = sortedByMarketCap

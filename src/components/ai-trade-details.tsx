@@ -10,9 +10,46 @@ import {
   Copy,
 } from "lucide-react";
 import { TradeButtonWithModal } from "./trade-modal";
+import Image from "next/image";
 
 // Import our server API instead
 import { fetchRealTimeTokensFromServer } from "@/lib/integrations/client-api";
+
+// Define proper TypeScript interfaces
+interface TokenData {
+  mint: string;
+  symbol: string;
+  name: string;
+  created_timestamp: number;
+  usd_market_cap: number;
+  reply_count: number;
+  twitter?: string;
+  telegram?: string;
+  website?: string;
+}
+
+interface TokenResponse {
+  tokens: TokenData[];
+  source: string;
+  count: number;
+}
+
+interface AnalysisResult {
+  overallDegenWinRate: number;
+  topDegenInsights: Array<{
+    token: string;
+    mint: string;
+    symbol: string;
+    winRate: number;
+    riskLevel: "LOW" | "MEDIUM" | "HIGH" | "EXTREME";
+    degenComment: string;
+    marketCap: number;
+    ageHours: number;
+    score: number;
+  }>;
+  marketVibe: string;
+  totalTokensAnalyzed: number;
+}
 
 export async function AITradeDetails() {
   console.log(
@@ -20,7 +57,7 @@ export async function AITradeDetails() {
     process.env.OPENAI_API_KEY ? "Loaded but quota exceeded" : "Missing"
   );
 
-  let realTokenData: any[] = [];
+  let realTokenData: TokenData[] = [];
   let dataSource = "";
   let tokenCount = 0;
 
@@ -39,7 +76,9 @@ export async function AITradeDetails() {
   }
 
   // Analyze tokens without AI - use algorithmic analysis
-  const analyzeTokensAlgorithmically = (tokens: any[]) => {
+  const analyzeTokensAlgorithmically = (
+    tokens: TokenData[]
+  ): AnalysisResult => {
     if (!tokens || tokens.length === 0) {
       return {
         overallDegenWinRate: 0,
@@ -56,7 +95,7 @@ export async function AITradeDetails() {
       const ageInHours = Math.floor(
         (now - token.created_timestamp) / (1000 * 60 * 60)
       );
-      const ageInDays = ageInHours / 24;
+      // Removed unused variable ageInDays
 
       // Risk assessment based on real metrics
       let riskLevel: "LOW" | "MEDIUM" | "HIGH" | "EXTREME" = "MEDIUM";
