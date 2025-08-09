@@ -1,4 +1,4 @@
-import { TokenData } from "@/types/token";
+import type { TokenData } from "@/types/token";
 
 export interface ApiResponse {
   success: boolean;
@@ -6,26 +6,37 @@ export interface ApiResponse {
   source: string;
   count: number;
   error?: string;
+  isRealData?: boolean;
 }
 
 export async function fetchRealTimeTokensFromServer(): Promise<ApiResponse> {
   try {
     console.log("🔄 Client: Fetching from server API...");
 
-    // Handle both client and server environments
-    const baseUrl =
-      typeof window !== "undefined"
-        ? "" // Client-side: use relative URL
-        : process.env.VERCEL_URL
-        ? `https://${process.env.VERCEL_URL}`
-        : "http://localhost:3000"; // Server-side: use absolute URL
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 second timeout
 
-    const response = await fetch(`${baseUrl}/api/real-tokens`, {
-      next: { revalidate: 30 },
+    const response = await fetch("/api/real-tokens", {
+      signal: controller.signal,
+      cache: "no-store",
     });
 
+    clearTimeout(timeoutId);
+
+    console.log(`📡 Server response status: ${response.status}`);
+
     if (!response.ok) {
-      throw new Error(`Server API error: ${response.status}`);
+      const errorData = await response.json().catch(() => ({}));
+      console.error(`❌ Server API error: ${response.status}`, errorData);
+
+      return {
+        success: false,
+        tokens: [],
+        source: `SERVER ERROR ${response.status}`,
+        count: 0,
+        error: errorData.error || `Server returned ${response.status}`,
+        isRealData: false,
+      };
     }
 
     const data: ApiResponse = await response.json();
@@ -33,92 +44,108 @@ export async function fetchRealTimeTokensFromServer(): Promise<ApiResponse> {
 
     return data;
   } catch (error) {
-    console.error("❌ Client: Server API failed:", error);
-    throw error;
+    console.error("❌ Client: Complete failure:", error);
+
+    return {
+      success: false,
+      tokens: [],
+      source: "CLIENT ERROR",
+      count: 0,
+      error: error instanceof Error ? error.message : "Unknown error",
+      isRealData: false,
+    };
   }
 }
 
-// Categorize tokens with sophisticated logic
+// Enhanced categorization
 export function categorizeTokens(tokens: TokenData[]): {
   highestGainer: TokenData[];
   fastestRunner: TokenData[];
   gambleBox: TokenData[];
+  analytics: {
+    totalTracked: number;
+    recentGraduations: number;
+    stageDistribution: { gamble: number; runner: number; gainer: number };
+  };
 } {
   if (!tokens || tokens.length === 0) {
     return {
       highestGainer: [],
       fastestRunner: [],
       gambleBox: [],
+      analytics: {
+        totalTracked: 0,
+        recentGraduations: 0,
+        stageDistribution: { gamble: 0, runner: 0, gainer: 0 },
+      },
     };
   }
 
   const now = Date.now();
 
-  // Calculate scores for each token
-  const tokensWithScores = tokens.map((token) => {
-    const ageInHours = (now - token.created_timestamp) / (1000 * 60 * 60);
-    const ageInDays = ageInHours / 24;
+  // Sort tokens by market cap and age
+  const sortedTokens = tokens.sort(
+    (a, b) => b.usd_market_cap - a.usd_market_cap
+  );
 
-    // Highest Gainer: Established tokens with high market cap and activity
-    const establishmentScore = Math.min(ageInDays * 10, 100);
-    const marketCapScore = Math.log10(token.usd_market_cap + 1) * 15;
-    const activityScore = Math.log10(token.reply_count + 1) * 10;
-    const momentumScore = establishmentScore + marketCapScore + activityScore;
-
-    // Fastest Runner: Mid-tier tokens with good momentum
-    const velocityScore =
-      (token.reply_count > 100 ? 50 : 0) +
-      (token.usd_market_cap > 50000 && token.usd_market_cap < 1000000
-        ? 40
-        : 0) +
-      (ageInHours < 24 ? 30 : 0);
-
-    // Gamble Box: New tokens with potential
-    const freshnessScore = ageInHours < 2 ? 100 : ageInHours < 12 ? 70 : 30;
-    const riskScore = freshnessScore + (token.usd_market_cap < 100000 ? 50 : 0);
-
-    return {
-      ...token,
-      momentumScore,
-      velocityScore,
-      riskScore,
-      ageInHours,
-    };
-  });
-
-  // Sort and categorize
-  const highestGainer = tokensWithScores
-    .filter(
-      (token) => token.usd_market_cap > 500000 || token.momentumScore > 80
-    )
-    .sort((a, b) => b.momentumScore - a.momentumScore)
+  // Categorize based on market cap thresholds
+  const highestGainer = sortedTokens
+    .filter((token) => token.usd_market_cap > 100000)
     .slice(0, 10);
 
-  const fastestRunner = tokensWithScores
+  const fastestRunner = sortedTokens
     .filter(
       (token) =>
         token.usd_market_cap >= 10000 &&
-        token.usd_market_cap <= 1000000 &&
-        token.reply_count > 50 &&
+        token.usd_market_cap <= 100000 &&
         !highestGainer.includes(token)
     )
-    .sort((a, b) => b.velocityScore - a.velocityScore)
     .slice(0, 8);
 
-  const gambleBox = tokensWithScores
+  const gambleBox = sortedTokens
     .filter(
       (token) =>
-        token.ageInHours < 24 &&
-        token.usd_market_cap < 200000 &&
+        token.usd_market_cap < 10000 &&
         !highestGainer.includes(token) &&
         !fastestRunner.includes(token)
     )
-    .sort((a, b) => b.riskScore - a.riskScore)
     .slice(0, 12);
+
+  // If categories are empty, distribute tokens
+  if (
+    gambleBox.length === 0 &&
+    fastestRunner.length === 0 &&
+    highestGainer.length === 0
+  ) {
+    const distributed = sortedTokens.slice(0, 15);
+    return {
+      gambleBox: distributed.slice(0, 5),
+      fastestRunner: distributed.slice(5, 10),
+      highestGainer: distributed.slice(10, 15),
+      analytics: {
+        totalTracked: tokens.length,
+        recentGraduations: 0,
+        stageDistribution: { gamble: 5, runner: 5, gainer: 5 },
+      },
+    };
+  }
+
+  const analytics = {
+    totalTracked: tokens.length,
+    recentGraduations: 0,
+    stageDistribution: {
+      gamble: gambleBox.length,
+      runner: fastestRunner.length,
+      gainer: highestGainer.length,
+    },
+  };
+
+  console.log("📊 Token Categorization:", analytics);
 
   return {
     highestGainer,
     fastestRunner,
     gambleBox,
+    analytics,
   };
 }

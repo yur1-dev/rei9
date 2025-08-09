@@ -31,10 +31,21 @@ export interface TokenData {
   usd_market_cap: number;
 }
 
+export interface TokenAnalytics {
+  totalTracked: number;
+  recentGraduations: number;
+  stageDistribution: {
+    gamble: number;
+    runner: number;
+    gainer: number;
+  };
+}
+
 export interface CategorizedTokens {
   highestGainer: TokenData[];
   fastestRunner: TokenData[];
   gambleBox: TokenData[];
+  analytics: TokenAnalytics;
 }
 
 export type TokenCategory = "highestGainer" | "fastestRunner" | "gambleBox";

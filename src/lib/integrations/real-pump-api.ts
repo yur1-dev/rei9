@@ -1,62 +1,39 @@
-import { TokenData } from "@/types/token";
+import type { TokenData } from "@/types/token";
 
 // Real Pump.fun API endpoints
 const PUMP_API_BASE = "https://frontend-api.pump.fun";
-const PUMP_WS_URL = "wss://pumpportal.fun/api/data";
 
-export interface PumpFunToken {
+export interface PumpFunApiResponse {
   mint: string;
   name: string;
   symbol: string;
   description: string;
   image_uri: string;
-  metadata_uri: string;
-  twitter?: string;
-  telegram?: string;
-  bonding_curve: string;
-  associated_bonding_curve: string;
-  creator: string;
-  created_timestamp: number;
-  raydium_pool?: string;
-  complete: boolean;
-  virtual_sol_reserves: number;
-  virtual_token_reserves: number;
-  total_supply: number;
-  website?: string;
-  show_name: boolean;
-  market_cap: number;
-  reply_count: number;
-  nsfw: boolean;
-  usd_market_cap: number;
-}
-
-interface WebSocketMessage {
-  type: string;
-  mint?: string;
-  name?: string;
-  symbol?: string;
-  description?: string;
-  image_uri?: string;
   metadata_uri?: string;
   twitter?: string;
   telegram?: string;
   bonding_curve?: string;
   associated_bonding_curve?: string;
-  creator?: string;
-  created_timestamp?: number;
+  creator: string;
+  created_timestamp: number;
+  raydium_pool?: string;
+  complete: boolean;
   virtual_sol_reserves?: number;
   virtual_token_reserves?: number;
   total_supply?: number;
   website?: string;
   show_name?: boolean;
   market_cap?: number;
+  reply_count?: number;
   nsfw?: boolean;
   usd_market_cap?: number;
 }
 
-// Fetch initial tokens from Pump.fun
+// Enhanced fetch with better error handling and data validation
 export async function fetchRealTokens(): Promise<TokenData[]> {
   try {
+    console.log("🔄 Fetching tokens from Pump.fun API...");
+
     const response = await fetch(
       `${PUMP_API_BASE}/coins?offset=0&limit=50&sort=created_timestamp&order=DESC&includeNsfw=false`,
       {
@@ -65,6 +42,7 @@ export async function fetchRealTokens(): Promise<TokenData[]> {
           "User-Agent":
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
         },
+        cache: "no-store", // Ensure fresh data
       }
     );
 
@@ -72,210 +50,94 @@ export async function fetchRealTokens(): Promise<TokenData[]> {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    const data: PumpFunToken[] = await response.json();
+    const rawData = await response.json();
+    console.log("🔍 Raw API Response:", rawData);
 
-    // Convert to our TokenData format
-    return data.map((token) => ({
-      mint: token.mint,
-      name: token.name,
-      symbol: token.symbol,
-      description: token.description,
-      image_uri: token.image_uri,
-      metadata_uri: token.metadata_uri,
-      twitter: token.twitter,
-      telegram: token.telegram,
-      bonding_curve: token.bonding_curve,
-      associated_bonding_curve: token.associated_bonding_curve,
-      creator: token.creator,
-      created_timestamp: token.created_timestamp,
-      raydium_pool: token.raydium_pool,
-      complete: token.complete,
-      virtual_sol_reserves: token.virtual_sol_reserves,
-      virtual_token_reserves: token.virtual_token_reserves,
-      total_supply: token.total_supply,
-      website: token.website,
-      show_name: token.show_name,
-      market_cap: token.market_cap,
-      reply_count: token.reply_count,
-      nsfw: token.nsfw,
-      is_currently_live: !token.complete,
-      usd_market_cap: token.usd_market_cap,
-    }));
+    // Handle different response formats
+    let tokensArray: PumpFunApiResponse[] = [];
+    if (Array.isArray(rawData)) {
+      tokensArray = rawData;
+    } else if (rawData.data && Array.isArray(rawData.data)) {
+      tokensArray = rawData.data;
+    } else if (rawData.tokens && Array.isArray(rawData.tokens)) {
+      tokensArray = rawData.tokens;
+    } else {
+      console.error("❌ Unexpected API response format:", rawData);
+      throw new Error("Invalid API response format");
+    }
+
+    console.log(`✅ Processing ${tokensArray.length} tokens from API`);
+
+    // Convert and validate each token
+    const processedTokens: TokenData[] = tokensArray
+      .map((apiToken, index) => {
+        try {
+          // Validate required fields
+          if (!apiToken.mint || !apiToken.symbol) {
+            console.warn(
+              `⚠️ Skipping token ${index}: missing required fields`,
+              apiToken
+            );
+            return null;
+          }
+
+          const token: TokenData = {
+            mint: apiToken.mint,
+            name: apiToken.name || apiToken.symbol || `Token ${index}`,
+            symbol: apiToken.symbol,
+            description: apiToken.description || "",
+            image_uri: apiToken.image_uri || "",
+            metadata_uri: apiToken.metadata_uri || "",
+            twitter: apiToken.twitter,
+            telegram: apiToken.telegram,
+            bonding_curve: apiToken.bonding_curve || "",
+            associated_bonding_curve: apiToken.associated_bonding_curve || "",
+            creator: apiToken.creator || "",
+            created_timestamp: apiToken.created_timestamp || Date.now(),
+            raydium_pool: apiToken.raydium_pool,
+            complete: apiToken.complete || false,
+            virtual_sol_reserves: apiToken.virtual_sol_reserves || 0,
+            virtual_token_reserves: apiToken.virtual_token_reserves || 0,
+            total_supply: apiToken.total_supply || 0,
+            website: apiToken.website,
+            show_name: apiToken.show_name ?? true,
+            king_of_the_hill_timestamp: undefined,
+            market_cap: apiToken.market_cap || 0,
+            reply_count: apiToken.reply_count || 0,
+            last_reply: undefined,
+            nsfw: apiToken.nsfw || false,
+            market_id: undefined,
+            inverted: undefined,
+            is_currently_live: !apiToken.complete,
+            username: undefined,
+            profile_image: undefined,
+            usd_market_cap: apiToken.usd_market_cap || apiToken.market_cap || 0,
+          };
+
+          // Log first few tokens for debugging
+          if (index < 3) {
+            console.log(`🔍 Processed Token ${index}:`, {
+              symbol: token.symbol,
+              name: token.name,
+              mint: token.mint,
+              usd_market_cap: token.usd_market_cap,
+            });
+          }
+
+          return token;
+        } catch (error) {
+          console.error(`❌ Error processing token ${index}:`, error, apiToken);
+          return null;
+        }
+      })
+      .filter((token): token is TokenData => token !== null);
+
+    console.log(
+      `✅ Successfully processed ${processedTokens.length} valid tokens`
+    );
+    return processedTokens;
   } catch (error) {
-    console.error("Error fetching real tokens:", error);
+    console.error("❌ Error fetching real tokens:", error);
     throw error;
   }
-}
-
-// WebSocket connection for real-time updates
-export class RealTimeTokenStream {
-  private ws: WebSocket | null = null;
-  private reconnectAttempts = 0;
-  private maxReconnectAttempts = 5;
-  private reconnectDelay = 1000;
-
-  constructor(
-    private onTokenUpdate: (tokens: TokenData[]) => void,
-    private onNewToken: (token: TokenData) => void,
-    private onConnectionChange: (connected: boolean) => void
-  ) {}
-
-  connect() {
-    try {
-      // Connect to Pump Portal WebSocket
-      this.ws = new WebSocket(PUMP_WS_URL);
-
-      this.ws.onopen = () => {
-        console.log("Connected to Pump Portal WebSocket");
-        this.onConnectionChange(true);
-        this.reconnectAttempts = 0;
-
-        // Subscribe to new token events
-        this.ws?.send(
-          JSON.stringify({
-            method: "subscribeNewToken",
-          })
-        );
-
-        // Subscribe to token updates
-        this.ws?.send(
-          JSON.stringify({
-            method: "subscribeTokenTrade",
-          })
-        );
-      };
-
-      this.ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          this.handleWebSocketMessage(data);
-        } catch (error) {
-          console.error("Error parsing WebSocket message:", error);
-        }
-      };
-
-      this.ws.onclose = () => {
-        console.log("WebSocket connection closed");
-        this.onConnectionChange(false);
-        this.attemptReconnect();
-      };
-
-      this.ws.onerror = (error) => {
-        console.error("WebSocket error:", error);
-        this.onConnectionChange(false);
-      };
-    } catch (error) {
-      console.error("Error connecting to WebSocket:", error);
-      this.onConnectionChange(false);
-    }
-  }
-
-  private handleWebSocketMessage(data: WebSocketMessage) {
-    if (data.type === "new_token") {
-      // Handle new token creation
-      const newToken: TokenData = {
-        mint: data.mint || "",
-        name: data.name || "",
-        symbol: data.symbol || "",
-        description: data.description || "",
-        image_uri: data.image_uri || "",
-        metadata_uri: data.metadata_uri || "",
-        twitter: data.twitter,
-        telegram: data.telegram,
-        bonding_curve: data.bonding_curve || "",
-        associated_bonding_curve: data.associated_bonding_curve || "",
-        creator: data.creator || "",
-        created_timestamp: data.created_timestamp || Date.now(),
-        complete: false,
-        virtual_sol_reserves: data.virtual_sol_reserves || 0,
-        virtual_token_reserves: data.virtual_token_reserves || 0,
-        total_supply: data.total_supply || 0,
-        website: data.website,
-        show_name: data.show_name ?? true,
-        market_cap: data.market_cap || 0,
-        reply_count: 0,
-        nsfw: data.nsfw || false,
-        is_currently_live: true,
-        usd_market_cap: data.usd_market_cap || 0,
-      };
-
-      this.onNewToken(newToken);
-    } else if (data.type === "token_trade") {
-      // Handle token trade updates (price changes, volume, etc.)
-      // This would update existing tokens with new market data
-      console.log("Token trade update:", data);
-    }
-  }
-
-  private attemptReconnect() {
-    if (this.reconnectAttempts < this.maxReconnectAttempts) {
-      this.reconnectAttempts++;
-      console.log(
-        `Attempting to reconnect... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`
-      );
-
-      setTimeout(() => {
-        this.connect();
-      }, this.reconnectDelay * this.reconnectAttempts);
-    } else {
-      console.log("Max reconnection attempts reached");
-    }
-  }
-
-  disconnect() {
-    if (this.ws) {
-      this.ws.close();
-      this.ws = null;
-    }
-  }
-}
-
-export function categorizeTokens(tokens: TokenData[]): {
-  highestGainer: TokenData[];
-  fastestRunner: TokenData[];
-  gambleBox: TokenData[];
-} {
-  if (!tokens || tokens.length === 0) {
-    return {
-      highestGainer: [],
-      fastestRunner: [],
-      gambleBox: [],
-    };
-  }
-
-  // Sort by market cap and age for better categorization
-  const sortedByMarketCap = [...tokens].sort(
-    (a, b) => b.usd_market_cap - a.usd_market_cap
-  );
-
-  // Highest Gainer: High market cap tokens (> $50K)
-  const highestGainer = sortedByMarketCap
-    .filter((token) => token.usd_market_cap > 50000)
-    .slice(0, 3);
-
-  // Fastest Runner: Mid-tier tokens ($5K - $50K)
-  const fastestRunner = sortedByMarketCap
-    .filter(
-      (token) =>
-        token.usd_market_cap >= 5000 &&
-        token.usd_market_cap <= 50000 &&
-        !highestGainer.includes(token)
-    )
-    .slice(0, 3);
-
-  // Gamble Box: Low market cap, newest tokens (< $5K)
-  const gambleBox = sortedByMarketCap
-    .filter(
-      (token) =>
-        token.usd_market_cap < 5000 &&
-        !highestGainer.includes(token) &&
-        !fastestRunner.includes(token)
-    )
-    .slice(0, 3);
-
-  return {
-    highestGainer,
-    fastestRunner,
-    gambleBox,
-  };
 }

@@ -1,82 +1,115 @@
 "use client";
+import { useState, useEffect, useCallback } from "react";
+import type { TokenData } from "@/types/token";
 
-import { useState, useEffect, useRef, useCallback } from "react";
-import { TokenData } from "@/types/token";
-import {
-  fetchRealTimeTokensFromServer,
-  categorizeTokens,
-} from "@/lib/integrations/client-api";
-
-interface RealtimeTokensHook {
+interface ApiResponse {
+  success: boolean;
   tokens: TokenData[];
-  isConnected: boolean;
-  connectionStatus: "connecting" | "connected" | "disconnected" | "error";
-  lastUpdate: Date | null;
-  dataSource: string;
+  source: string;
+  count: number;
+  error?: string;
+  isRealData?: boolean;
 }
 
-export function useRealtimeTokens(): RealtimeTokensHook {
+export function useRealtimeTokens() {
   const [tokens, setTokens] = useState<TokenData[]>([]);
   const [isConnected, setIsConnected] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState<
-    "connecting" | "connected" | "disconnected" | "error"
-  >("connecting");
+  const [connectionStatus, setConnectionStatus] = useState("Initializing...");
+  const [dataSource, setDataSource] = useState("Unknown");
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
-  const [dataSource, setDataSource] = useState<string>("");
 
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const fetchTokens = useCallback(async () => {
+    // Only run in browser
+    if (typeof window === "undefined") {
+      console.log("⚠️ Hook called on server, skipping...");
+      return;
+    }
 
-  // Fetch data from server API
-  useEffect(() => {
-    let mounted = true;
+    try {
+      console.log("🔄 Client: Fetching tokens from API...");
+      setConnectionStatus("Fetching...");
 
-    const fetchData = async () => {
-      try {
-        setConnectionStatus("connecting");
-        setDataSource("Connecting...");
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-        const response = await fetchRealTimeTokensFromServer();
+      const response = await fetch("/api/real-tokens", {
+        signal: controller.signal,
+        cache: "no-store",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
 
-        if (mounted) {
-          setTokens(response.tokens);
-          setLastUpdate(new Date());
-          setIsConnected(response.success);
-          setConnectionStatus(response.success ? "connected" : "error");
-          setDataSource(response.source);
+      clearTimeout(timeoutId);
 
-          console.log(
-            `✅ Hook: Updated with ${response.count} tokens from ${response.source}`
-          );
-        }
-      } catch (error) {
-        console.error("❌ Hook: Failed to fetch data:", error);
-        if (mounted) {
-          setConnectionStatus("error");
-          setDataSource("Connection failed");
-          setIsConnected(false);
-        }
+      console.log(`📡 Client: API Response Status: ${response.status}`);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`❌ Client: API Error ${response.status}:`, errorText);
+
+        setIsConnected(false);
+        setConnectionStatus(`API Error: ${response.status}`);
+        setDataSource("API Failed");
+        return;
       }
-    };
 
-    // Initial fetch
-    fetchData();
+      const data: ApiResponse = await response.json();
+      console.log("📦 Client: API Response:", data);
 
-    // Set up periodic updates every 30 seconds
-    intervalRef.current = setInterval(fetchData, 30000);
+      if (data.success && data.tokens && data.tokens.length > 0) {
+        console.log(
+          `✅ Client: Got ${data.tokens.length} real tokens from ${data.source}`
+        );
 
-    return () => {
-      mounted = false;
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
+        setTokens(data.tokens);
+        setIsConnected(true);
+        setConnectionStatus("Connected");
+        setDataSource(data.source);
+        setLastUpdate(new Date());
+      } else {
+        console.warn("⚠️ Client: API returned no tokens:", data);
+
+        setIsConnected(false);
+        setConnectionStatus(data.error || "No tokens received");
+        setDataSource(data.source || "Unknown");
       }
-    };
+    } catch (error) {
+      console.error("❌ Client: Fetch failed:", error);
+
+      setIsConnected(false);
+      setConnectionStatus(
+        error instanceof Error ? error.message : "Network Error"
+      );
+      setDataSource("Client Error");
+    }
   }, []);
+
+  // Initial fetch - only in browser
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      fetchTokens();
+    }
+  }, [fetchTokens]);
+
+  // Periodic refresh every 2 minutes - only in browser
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const interval = setInterval(() => {
+      console.log("🔄 Client: Auto-refreshing tokens...");
+      fetchTokens();
+    }, 120000); // 2 minutes
+
+    return () => clearInterval(interval);
+  }, [fetchTokens]);
 
   return {
     tokens,
     isConnected,
     connectionStatus,
-    lastUpdate,
     dataSource,
+    lastUpdate,
+    refetch: fetchTokens,
   };
 }
