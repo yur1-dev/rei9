@@ -59,7 +59,7 @@ export class PumpFunAPIError extends Error {
   constructor(
     message: string,
     public status?: number,
-    public response?: unknown
+    public response?: string
   ) {
     super(message);
     this.name = "PumpFunAPIError";
