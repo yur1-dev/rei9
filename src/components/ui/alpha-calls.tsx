@@ -1,6 +1,7 @@
 "use client";
 import { useMemo, useState, useEffect, useCallback } from "react";
 import type React from "react";
+import Image from "next/image";
 
 import { useRealtimeTokens } from "@/app/hooks/use-realtime-tokens";
 import { TradeButtonWithModal } from "../trade-modal";
@@ -18,8 +19,30 @@ import {
 } from "lucide-react";
 import type { TokenData } from "@/types/token";
 
+// Define proper types for categorized tokens
+interface CategorizedTokens {
+  highestGainer: TokenData[];
+  fastestRunner: TokenData[];
+  gambleBox: TokenData[];
+  analytics: {
+    totalTracked: number;
+    recentGraduations: number;
+    stageDistribution: {
+      gamble: number;
+      runner: number;
+      gainer: number;
+    };
+  };
+}
+
+// Define valid category keys
+type CategoryKey = keyof Pick<
+  CategorizedTokens,
+  "highestGainer" | "fastestRunner" | "gambleBox"
+>;
+
 // Import categorizeTokens function
-const categorizeTokens = (tokens: TokenData[]) => {
+const categorizeTokens = (tokens: TokenData[]): CategorizedTokens => {
   if (!tokens || tokens.length === 0) {
     return {
       highestGainer: [],
@@ -116,9 +139,11 @@ const TokenImage = ({ token }: { token: TokenData }) => {
         onMouseEnter={() => setShowPreview(true)}
         onMouseLeave={() => setShowPreview(false)}
       >
-        <img
+        <Image
           src={token.image_uri || "/placeholder.svg"}
           alt={token.symbol}
+          width={48}
+          height={48}
           className="w-12 h-12 object-cover border border-gray-600 transition-all duration-300 group-hover:border-blue-400 group-hover:shadow-lg group-hover:shadow-blue-400/50 group-hover:scale-105"
           onError={() => setImageError(true)}
         />
@@ -134,9 +159,11 @@ const TokenImage = ({ token }: { token: TokenData }) => {
             }}
           >
             <div className="bg-black/90 backdrop-blur-sm border-2 border-blue-400 rounded-2xl p-4 shadow-2xl">
-              <img
+              <Image
                 src={token.image_uri || "/placeholder.svg"}
                 alt={token.symbol}
+                width={128}
+                height={128}
                 className="w-32 h-32 object-cover rounded-xl border border-gray-600"
               />
               <div className="text-center mt-2">
@@ -208,14 +235,8 @@ const SocialIcon = ({
 // Main component
 export function AlphaCalls() {
   const [isClient, setIsClient] = useState(false);
-  const {
-    tokens,
-    isConnected,
-    connectionStatus,
-    dataSource,
-    lastUpdate,
-    refetch,
-  } = useRealtimeTokens();
+  const { tokens, isConnected, connectionStatus, dataSource, refetch } =
+    useRealtimeTokens();
 
   // Ensure client-side rendering
   useEffect(() => {
@@ -286,8 +307,8 @@ export function AlphaCalls() {
     return { current: currentGain, highest: highestGain, calledPrice };
   }, []);
 
-  // Rotation state
-  const [indices, setIndices] = useState({
+  // Rotation state with proper typing
+  const [indices, setIndices] = useState<Record<CategoryKey, number>>({
     gambleBox: 0,
     fastestRunner: 0,
     highestGainer: 0,
@@ -316,7 +337,7 @@ export function AlphaCalls() {
 
   const categories = [
     {
-      key: "gambleBox" as keyof typeof categorizedTokens,
+      key: "gambleBox" as CategoryKey,
       title: "Gamble Box",
       icon: "🎲",
       bgClass: "bg-red-900/20",
@@ -326,7 +347,7 @@ export function AlphaCalls() {
         "bg-red-500/20 hover:bg-red-500/30 text-red-400 border-red-500/30",
     },
     {
-      key: "fastestRunner" as keyof typeof categorizedTokens,
+      key: "fastestRunner" as CategoryKey,
       title: "Fastest Runner",
       icon: "⚡",
       bgClass: "bg-green-900/20",
@@ -336,7 +357,7 @@ export function AlphaCalls() {
         "bg-green-500/20 hover:bg-green-500/30 text-green-400 border-green-500/30",
     },
     {
-      key: "highestGainer" as keyof typeof categorizedTokens,
+      key: "highestGainer" as CategoryKey,
       title: "Highest Gainer",
       icon: "👑",
       bgClass: "bg-yellow-900/20",
