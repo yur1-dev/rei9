@@ -56,7 +56,11 @@ interface WebSocketMessage {
 
 // Enhanced error handling
 export class PumpFunAPIError extends Error {
-  constructor(message: string, public status?: number, public response?: any) {
+  constructor(
+    message: string,
+    public status?: number,
+    public response?: unknown
+  ) {
     super(message);
     this.name = "PumpFunAPIError";
   }
@@ -212,7 +216,7 @@ export class RealTimeTokenStream {
 
       this.ws.onmessage = (event) => {
         try {
-          const data = JSON.parse(event.data);
+          const data = JSON.parse(event.data) as WebSocketMessage;
           this.handleWebSocketMessage(data);
         } catch (parseError) {
           console.error("Error parsing WebSocket message:", parseError);

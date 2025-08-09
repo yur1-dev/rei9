@@ -1,6 +1,87 @@
 import { NextResponse } from "next/server";
 import type { TokenData } from "@/types/token";
 
+// Define proper types for API responses
+interface BirdeyeToken {
+  address: string;
+  name: string;
+  symbol: string;
+  logoURI?: string;
+  mc?: number;
+}
+
+interface BirdeyeResponse {
+  success: boolean;
+  data?: {
+    tokens: BirdeyeToken[];
+  };
+}
+
+interface JupiterToken {
+  address: string;
+  symbol: string;
+  name: string;
+  logoURI?: string;
+  tags?: string[];
+}
+
+interface DexScreenerPair {
+  chainId: string;
+  dexId?: string;
+  baseToken: {
+    address: string;
+    symbol: string;
+    name: string;
+  };
+  marketCap?: number;
+  fdv?: number;
+  pairCreatedAt?: number;
+  txns?: {
+    h24?: {
+      buys?: number;
+      sells?: number;
+    };
+  };
+  info?: {
+    imageUrl?: string;
+    socials?: Array<{
+      type: string;
+      url: string;
+    }>;
+    websites?: Array<{
+      url: string;
+    }>;
+  };
+}
+
+interface DexScreenerResponse {
+  pairs: DexScreenerPair[];
+}
+
+interface PumpFunToken {
+  mint: string;
+  name: string;
+  symbol: string;
+  description?: string;
+  image_uri?: string;
+  metadata_uri?: string;
+  bonding_curve?: string;
+  associated_bonding_curve?: string;
+  creator?: string;
+  created_timestamp?: number;
+  complete?: boolean;
+  virtual_sol_reserves?: number;
+  virtual_token_reserves?: number;
+  total_supply?: number;
+  market_cap?: number;
+  reply_count?: number;
+  nsfw?: boolean;
+  usd_market_cap?: number;
+  twitter?: string;
+  telegram?: string;
+  website?: string;
+}
+
 // Let's try a different approach - use a public API that actually works
 async function fetchFromBirdEye(): Promise<TokenData[]> {
   console.log("🔄 Trying Birdeye API for Solana tokens...");
@@ -21,14 +102,14 @@ async function fetchFromBirdEye(): Promise<TokenData[]> {
       throw new Error(`Birdeye API failed: ${response.status}`);
     }
 
-    const data = await response.json();
+    const data = (await response.json()) as BirdeyeResponse;
     console.log("✅ Birdeye response:", data);
 
     if (data.success && data.data?.tokens) {
       return data.data.tokens
-        .filter((token: any) => token.symbol && token.name)
+        .filter((token: BirdeyeToken) => token.symbol && token.name)
         .slice(0, 30)
-        .map((token: any) => ({
+        .map((token: BirdeyeToken) => ({
           mint: token.address,
           name: token.name,
           symbol: token.symbol,
@@ -79,13 +160,13 @@ async function fetchFromJupiter(): Promise<TokenData[]> {
       throw new Error(`Jupiter API failed: ${response.status}`);
     }
 
-    const tokens = await response.json();
+    const tokens = (await response.json()) as JupiterToken[];
     console.log(`✅ Jupiter returned ${tokens.length} tokens`);
 
     if (Array.isArray(tokens)) {
       return tokens
         .filter(
-          (token: any) =>
+          (token: JupiterToken) =>
             token.address &&
             token.symbol &&
             token.name &&
@@ -93,7 +174,7 @@ async function fetchFromJupiter(): Promise<TokenData[]> {
             !token.tags?.includes("unknown")
         )
         .slice(0, 50)
-        .map((token: any) => ({
+        .map((token: JupiterToken) => ({
           mint: token.address,
           name: token.name,
           symbol: token.symbol,
@@ -151,13 +232,13 @@ async function fetchFromDexScreener(): Promise<TokenData[]> {
       throw new Error(`DexScreener API failed: ${response.status}`);
     }
 
-    const data = await response.json();
+    const data = (await response.json()) as DexScreenerResponse;
     console.log(`✅ DexScreener returned ${data.pairs?.length || 0} pairs`);
 
     if (data.pairs && Array.isArray(data.pairs)) {
       const tokens = data.pairs
         .filter(
-          (pair: any) =>
+          (pair: DexScreenerPair) =>
             pair.chainId === "solana" &&
             pair.baseToken?.address &&
             pair.baseToken?.symbol &&
@@ -165,7 +246,7 @@ async function fetchFromDexScreener(): Promise<TokenData[]> {
             (pair.marketCap || 0) > 1000
         )
         .slice(0, 40)
-        .map((pair: any) => ({
+        .map((pair: DexScreenerPair) => ({
           mint: pair.baseToken.address,
           name: pair.baseToken.name,
           symbol: pair.baseToken.symbol,
@@ -189,10 +270,8 @@ async function fetchFromDexScreener(): Promise<TokenData[]> {
           nsfw: false,
           is_currently_live: true,
           usd_market_cap: pair.marketCap || pair.fdv || 0,
-          twitter: pair.info?.socials?.find((s: any) => s.type === "twitter")
-            ?.url,
-          telegram: pair.info?.socials?.find((s: any) => s.type === "telegram")
-            ?.url,
+          twitter: pair.info?.socials?.find((s) => s.type === "twitter")?.url,
+          telegram: pair.info?.socials?.find((s) => s.type === "telegram")?.url,
           website: pair.info?.websites?.[0]?.url,
         }));
 
@@ -235,17 +314,17 @@ async function fetchPumpFunDirect(): Promise<TokenData[]> {
       console.log(`📡 Pump.fun response: ${response.status}`);
 
       if (response.ok) {
-        const data = await response.json();
+        const data = (await response.json()) as PumpFunToken[];
 
         if (Array.isArray(data) && data.length > 0) {
           console.log(`✅ Pump.fun success: ${data.length} tokens`);
 
           return data
             .filter(
-              (token: any) =>
+              (token: PumpFunToken) =>
                 token.mint && token.symbol && token.name && !token.nsfw
             )
-            .map((token: any) => ({
+            .map((token: PumpFunToken) => ({
               mint: token.mint,
               name: token.name,
               symbol: token.symbol,
