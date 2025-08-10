@@ -1,421 +1,353 @@
 import { NextResponse } from "next/server";
 import type { TokenData } from "@/types/token";
 
-// Define proper types for API responses
-interface BirdeyeToken {
-  address: string;
-  name: string;
-  symbol: string;
-  logoURI?: string;
-  mc?: number;
-}
-
-interface BirdeyeResponse {
-  success: boolean;
-  data?: {
-    tokens: BirdeyeToken[];
-  };
-}
-
-interface JupiterToken {
-  address: string;
-  symbol: string;
-  name: string;
-  logoURI?: string;
-  tags?: string[];
-}
-
 interface DexScreenerPair {
   chainId: string;
-  dexId?: string;
+  dexId: string;
+  url: string;
+  pairAddress: string;
   baseToken: {
     address: string;
-    symbol: string;
     name: string;
+    symbol: string;
   };
-  marketCap?: number;
+  quoteToken: {
+    address: string;
+    name: string;
+    symbol: string;
+  };
+  priceNative: string;
+  priceUsd: string;
+  txns: {
+    m5?: { buys: number; sells: number };
+    h1?: { buys: number; sells: number };
+    h6?: { buys: number; sells: number };
+    h24?: { buys: number; sells: number };
+  };
+  volume: {
+    h24?: number;
+    h6?: number;
+    h1?: number;
+    m5?: number;
+  };
+  priceChange: {
+    m5?: number;
+    h1?: number;
+    h6?: number;
+    h24?: number;
+  };
+  liquidity?: {
+    usd?: number;
+    base?: number;
+    quote?: number;
+  };
   fdv?: number;
+  marketCap?: number;
   pairCreatedAt?: number;
-  txns?: {
-    h24?: {
-      buys?: number;
-      sells?: number;
-    };
-  };
   info?: {
     imageUrl?: string;
-    socials?: Array<{
-      type: string;
-      url: string;
-    }>;
-    websites?: Array<{
-      url: string;
-    }>;
+    websites?: Array<{ url: string }>;
+    socials?: Array<{ platform: string; handle: string }>;
+  };
+  boosts?: {
+    active?: number;
   };
 }
 
 interface DexScreenerResponse {
+  schemaVersion: string;
   pairs: DexScreenerPair[];
 }
 
-interface PumpFunToken {
-  mint: string;
-  name: string;
-  symbol: string;
+interface TokenBoost {
+  chainId: string;
+  tokenAddress: string;
+  amount: number;
+  totalAmount: number;
+  icon?: string;
+  header?: string;
   description?: string;
-  image_uri?: string;
-  metadata_uri?: string;
-  bonding_curve?: string;
-  associated_bonding_curve?: string;
-  creator?: string;
-  created_timestamp?: number;
-  complete?: boolean;
-  virtual_sol_reserves?: number;
-  virtual_token_reserves?: number;
-  total_supply?: number;
-  market_cap?: number;
-  reply_count?: number;
-  nsfw?: boolean;
-  usd_market_cap?: number;
-  twitter?: string;
-  telegram?: string;
-  website?: string;
+  links?: Array<{ type: string; label: string; url: string }>;
 }
 
-// Let's try a different approach - use a public API that actually works
-async function fetchFromBirdEye(): Promise<TokenData[]> {
-  console.log("🔄 Trying Birdeye API for Solana tokens...");
+// Get trending Solana tokens from multiple DexScreener endpoints
+async function fetchTrendingSolanaTokens(): Promise<TokenData[]> {
+  const tokens: TokenData[] = [];
 
   try {
-    const response = await fetch(
-      "https://public-api.birdeye.so/defi/tokenlist?sort_by=v24hUSD&sort_type=desc&offset=0&limit=50",
-      {
-        headers: {
-          "X-API-KEY": "public", // Birdeye has a public tier
-          Accept: "application/json",
-        },
-        cache: "no-store",
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`Birdeye API failed: ${response.status}`);
-    }
-
-    const data = (await response.json()) as BirdeyeResponse;
-    console.log("✅ Birdeye response:", data);
-
-    if (data.success && data.data?.tokens) {
-      return data.data.tokens
-        .filter((token: BirdeyeToken) => token.symbol && token.name)
-        .slice(0, 30)
-        .map((token: BirdeyeToken) => ({
-          mint: token.address,
-          name: token.name,
-          symbol: token.symbol,
-          description: `Token on Solana - ${token.symbol}`,
-          image_uri: token.logoURI || "",
-          metadata_uri: "",
-          bonding_curve: "",
-          associated_bonding_curve: "",
-          creator: "",
-          created_timestamp: Date.now() - Math.random() * 86400000,
-          complete: false,
-          virtual_sol_reserves: 0,
-          virtual_token_reserves: 0,
-          total_supply: 1000000000,
-          show_name: true,
-          market_cap: token.mc || 0,
-          reply_count: Math.floor(Math.random() * 500),
-          nsfw: false,
-          is_currently_live: true,
-          usd_market_cap: token.mc || 0,
-          twitter: undefined,
-          telegram: undefined,
-          website: undefined,
-        }));
-    }
-
-    throw new Error("Invalid Birdeye response");
-  } catch (error) {
-    console.error("❌ Birdeye failed:", error);
-    throw error;
-  }
-}
-
-// Try Jupiter API for Solana tokens
-async function fetchFromJupiter(): Promise<TokenData[]> {
-  console.log("🔄 Trying Jupiter API for Solana tokens...");
-
-  try {
-    const response = await fetch("https://token.jup.ag/all", {
-      headers: {
-        Accept: "application/json",
-        "User-Agent": "Mozilla/5.0 (compatible; TokenFetcher/1.0)",
-      },
-      cache: "no-store",
-    });
-
-    if (!response.ok) {
-      throw new Error(`Jupiter API failed: ${response.status}`);
-    }
-
-    const tokens = (await response.json()) as JupiterToken[];
-    console.log(`✅ Jupiter returned ${tokens.length} tokens`);
-
-    if (Array.isArray(tokens)) {
-      return tokens
-        .filter(
-          (token: JupiterToken) =>
-            token.address &&
-            token.symbol &&
-            token.name &&
-            token.symbol.length <= 10 &&
-            !token.tags?.includes("unknown")
-        )
-        .slice(0, 50)
-        .map((token: JupiterToken) => ({
-          mint: token.address,
-          name: token.name,
-          symbol: token.symbol,
-          description: `${token.name} token on Solana`,
-          image_uri: token.logoURI || "",
-          metadata_uri: "",
-          bonding_curve: "",
-          associated_bonding_curve: "",
-          creator: "",
-          created_timestamp: Date.now() - Math.random() * 86400000,
-          complete: false,
-          virtual_sol_reserves: 0,
-          virtual_token_reserves: 0,
-          total_supply: 1000000000,
-          show_name: true,
-          market_cap: Math.floor(Math.random() * 1000000),
-          reply_count: Math.floor(Math.random() * 300),
-          nsfw: false,
-          is_currently_live: true,
-          usd_market_cap: Math.floor(Math.random() * 1000000),
-          twitter: undefined,
-          telegram: undefined,
-          website: undefined,
-        }));
-    }
-
-    throw new Error("Invalid Jupiter response");
-  } catch (error) {
-    console.error("❌ Jupiter failed:", error);
-    throw error;
-  }
-}
-
-// Try DexScreener with better error handling
-async function fetchFromDexScreener(): Promise<TokenData[]> {
-  console.log("🔄 Trying DexScreener API...");
-
-  try {
-    const response = await fetch(
-      "https://api.dexscreener.com/latest/dex/pairs/solana",
+    // 1. Get boosted tokens (trending/promoted)
+    console.log("🔄 Fetching boosted tokens from DexScreener...");
+    const boostedResponse = await fetch(
+      "https://api.dexscreener.com/token-boosts/latest/v1",
       {
         headers: {
           Accept: "application/json",
-          "User-Agent": "Mozilla/5.0 (compatible; TokenFetcher/1.0)",
+          "User-Agent": "AlphaCalls/1.0",
         },
-        cache: "no-store",
       }
     );
 
-    console.log(`📡 DexScreener status: ${response.status}`);
+    if (boostedResponse.ok) {
+      const boostedTokens: TokenBoost[] = await boostedResponse.json();
+      const solanaBoosts = boostedTokens.filter(
+        (token) => token.chainId === "solana"
+      );
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`❌ DexScreener error: ${response.status} - ${errorText}`);
-      throw new Error(`DexScreener API failed: ${response.status}`);
-    }
+      console.log(`📈 Found ${solanaBoosts.length} boosted Solana tokens`);
 
-    const data = (await response.json()) as DexScreenerResponse;
-    console.log(`✅ DexScreener returned ${data.pairs?.length || 0} pairs`);
+      // Get detailed data for boosted tokens
+      for (const boost of solanaBoosts.slice(0, 10)) {
+        try {
+          const pairResponse = await fetch(
+            `https://api.dexscreener.com/tokens/v1/solana/${boost.tokenAddress}`,
+            {
+              headers: {
+                Accept: "application/json",
+                "User-Agent": "AlphaCalls/1.0",
+              },
+            }
+          );
 
-    if (data.pairs && Array.isArray(data.pairs)) {
-      const tokens = data.pairs
-        .filter(
-          (pair: DexScreenerPair) =>
-            pair.chainId === "solana" &&
-            pair.baseToken?.address &&
-            pair.baseToken?.symbol &&
-            pair.baseToken?.name &&
-            (pair.marketCap || 0) > 1000
-        )
-        .slice(0, 40)
-        .map((pair: DexScreenerPair) => ({
-          mint: pair.baseToken.address,
-          name: pair.baseToken.name,
-          symbol: pair.baseToken.symbol,
-          description: `Trading on ${pair.dexId || "DEX"}`,
-          image_uri: pair.info?.imageUrl || "",
-          metadata_uri: "",
-          bonding_curve: "",
-          associated_bonding_curve: "",
-          creator: "",
-          created_timestamp: pair.pairCreatedAt
-            ? pair.pairCreatedAt * 1000
-            : Date.now() - Math.random() * 86400000,
-          complete: false,
-          virtual_sol_reserves: 0,
-          virtual_token_reserves: 0,
-          total_supply: 1000000000,
-          show_name: true,
-          market_cap: pair.marketCap || pair.fdv || 0,
-          reply_count:
-            (pair.txns?.h24?.buys || 0) + (pair.txns?.h24?.sells || 0),
-          nsfw: false,
-          is_currently_live: true,
-          usd_market_cap: pair.marketCap || pair.fdv || 0,
-          twitter: pair.info?.socials?.find((s) => s.type === "twitter")?.url,
-          telegram: pair.info?.socials?.find((s) => s.type === "telegram")?.url,
-          website: pair.info?.websites?.[0]?.url,
-        }));
+          if (pairResponse.ok) {
+            const pairData: DexScreenerPair[] = await pairResponse.json();
+            if (pairData && pairData.length > 0) {
+              const pair = pairData[0]; // Get the first/main pair
+              tokens.push(convertDexScreenerToToken(pair));
+            }
+          }
 
-      console.log(`✅ Processed ${tokens.length} DexScreener tokens`);
-      return tokens;
-    }
-
-    throw new Error("No pairs in DexScreener response");
-  } catch (error) {
-    console.error("❌ DexScreener failed:", error);
-    throw error;
-  }
-}
-
-// Try direct Pump.fun with different approach
-async function fetchPumpFunDirect(): Promise<TokenData[]> {
-  console.log("🔄 Trying Pump.fun with CORS proxy...");
-
-  const endpoints = [
-    "https://frontend-api.pump.fun/coins?offset=0&limit=50&sort=created_timestamp&order=DESC&includeNsfw=false",
-    "https://frontend-api.pump.fun/coins?offset=0&limit=50&sort=market_cap&order=DESC&includeNsfw=false",
-  ];
-
-  for (const endpoint of endpoints) {
-    try {
-      console.log(`🔄 Trying: ${endpoint}`);
-
-      const response = await fetch(endpoint, {
-        method: "GET",
-        headers: {
-          Accept: "application/json",
-          "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-          Origin: "https://pump.fun",
-          Referer: "https://pump.fun/",
-        },
-        cache: "no-store",
-      });
-
-      console.log(`📡 Pump.fun response: ${response.status}`);
-
-      if (response.ok) {
-        const data = (await response.json()) as PumpFunToken[];
-
-        if (Array.isArray(data) && data.length > 0) {
-          console.log(`✅ Pump.fun success: ${data.length} tokens`);
-
-          return data
-            .filter(
-              (token: PumpFunToken) =>
-                token.mint && token.symbol && token.name && !token.nsfw
-            )
-            .map((token: PumpFunToken) => ({
-              mint: token.mint,
-              name: token.name,
-              symbol: token.symbol,
-              description: token.description || "",
-              image_uri: token.image_uri || "",
-              metadata_uri: token.metadata_uri || "",
-              bonding_curve: token.bonding_curve || "",
-              associated_bonding_curve: token.associated_bonding_curve || "",
-              creator: token.creator || "",
-              created_timestamp: token.created_timestamp
-                ? token.created_timestamp * 1000
-                : Date.now(),
-              complete: token.complete || false,
-              virtual_sol_reserves: token.virtual_sol_reserves || 0,
-              virtual_token_reserves: token.virtual_token_reserves || 0,
-              total_supply: token.total_supply || 1000000000,
-              show_name: true,
-              market_cap: token.market_cap || 0,
-              reply_count: token.reply_count || 0,
-              nsfw: false,
-              is_currently_live: !token.complete,
-              usd_market_cap: token.usd_market_cap || token.market_cap || 0,
-              twitter: token.twitter,
-              telegram: token.telegram,
-              website: token.website,
-            }));
+          // Rate limiting - wait 100ms between requests
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        } catch (error) {
+          console.warn(
+            `⚠️ Failed to fetch pair data for ${boost.tokenAddress}:`,
+            error
+          );
         }
-      } else {
-        const errorText = await response.text();
-        console.log(
-          `❌ Pump.fun ${response.status}: ${errorText.substring(0, 200)}`
-        );
       }
-    } catch (error) {
-      console.log(`❌ Pump.fun endpoint failed:`, error);
-      continue;
     }
-  }
 
-  throw new Error("All Pump.fun endpoints failed");
+    // 2. Search for popular Solana pairs
+    console.log("🔍 Searching for popular Solana tokens...");
+    const searchQueries = ["SOL", "USDC", "BONK", "WIF", "POPCAT", "PEPE"];
+
+    for (const query of searchQueries) {
+      try {
+        const searchResponse = await fetch(
+          `https://api.dexscreener.com/latest/dex/search?q=${query}`,
+          {
+            headers: {
+              Accept: "application/json",
+              "User-Agent": "AlphaCalls/1.0",
+            },
+          }
+        );
+
+        if (searchResponse.ok) {
+          const searchData: DexScreenerResponse = await searchResponse.json();
+          const solanaPairs = searchData.pairs
+            ?.filter((pair) => pair.chainId === "solana")
+            ?.slice(0, 3); // Top 3 results per query
+
+          if (solanaPairs) {
+            for (const pair of solanaPairs) {
+              // Avoid duplicates
+              if (!tokens.find((t) => t.mint === pair.baseToken.address)) {
+                tokens.push(convertDexScreenerToToken(pair));
+              }
+            }
+          }
+        }
+
+        // Rate limiting
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      } catch (error) {
+        console.warn(`⚠️ Search failed for ${query}:`, error);
+      }
+    }
+
+    // 3. Get some specific high-volume Solana tokens
+    console.log("💎 Fetching specific high-volume tokens...");
+    const popularTokens = [
+      "So11111111111111111111111111111111111111112", // SOL
+      "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", // USDC
+      "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263", // BONK
+      "7GCihgDB8fe6KNjn2MYtkzZcRjQy3t9GHdC8uHYmW2hr", // POPCAT
+    ];
+
+    for (const tokenAddress of popularTokens) {
+      try {
+        const tokenResponse = await fetch(
+          `https://api.dexscreener.com/tokens/v1/solana/${tokenAddress}`,
+          {
+            headers: {
+              Accept: "application/json",
+              "User-Agent": "AlphaCalls/1.0",
+            },
+          }
+        );
+
+        if (tokenResponse.ok) {
+          const tokenData: DexScreenerPair[] = await tokenResponse.json();
+          if (tokenData && tokenData.length > 0) {
+            // Get the pair with highest liquidity
+            const bestPair = tokenData.sort(
+              (a, b) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0)
+            )[0];
+
+            if (!tokens.find((t) => t.mint === bestPair.baseToken.address)) {
+              tokens.push(convertDexScreenerToToken(bestPair));
+            }
+          }
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      } catch (error) {
+        console.warn(`⚠️ Failed to fetch token ${tokenAddress}:`, error);
+      }
+    }
+
+    console.log(
+      `✅ Successfully fetched ${tokens.length} real tokens from DexScreener`
+    );
+    return tokens;
+  } catch (error) {
+    console.error("❌ Error fetching trending tokens:", error);
+    throw error;
+  }
+}
+
+// Convert DexScreener pair data to our token format
+function convertDexScreenerToToken(pair: DexScreenerPair): TokenData {
+  const now = Date.now();
+
+  return {
+    // Core token data
+    mint: pair.baseToken.address,
+    name: pair.baseToken.name,
+    symbol: pair.baseToken.symbol,
+    description: `${pair.baseToken.name} (${pair.baseToken.symbol}) token`,
+    image_uri: pair.info?.imageUrl || "",
+    metadata_uri: "",
+    twitter: pair.info?.socials?.find((s) => s.platform === "twitter")?.handle
+      ? `https://twitter.com/${
+          pair.info.socials.find((s) => s.platform === "twitter")?.handle
+        }`
+      : undefined,
+    website: pair.info?.websites?.[0]?.url,
+    telegram: pair.info?.socials?.find((s) => s.platform === "telegram")?.handle
+      ? `https://t.me/${
+          pair.info.socials.find((s) => s.platform === "telegram")?.handle
+        }`
+      : undefined,
+    bonding_curve: "",
+    associated_bonding_curve: "",
+    creator: "",
+    created_timestamp:
+      pair.pairCreatedAt || now - Math.random() * 86400000 * 30, // Fallback to random recent date
+    complete: true, // Assume DexScreener tokens are "graduated"
+    virtual_sol_reserves: 0,
+    virtual_token_reserves: 0,
+    total_supply: 1000000000, // Default supply
+    show_name: true,
+    market_cap: pair.marketCap || 0,
+    usd_market_cap: pair.marketCap || 0,
+    reply_count: (pair.txns.h24?.buys || 0) + (pair.txns.h24?.sells || 0), // Use transaction count as activity
+    nsfw: false,
+    is_currently_live: true,
+
+    // DexScreener data
+    liquidity: pair.liquidity
+      ? {
+          usd: pair.liquidity.usd || 0,
+          base: pair.liquidity.base || 0,
+          quote: pair.liquidity.quote || 0,
+        }
+      : undefined,
+    volume: {
+      h24: pair.volume.h24 || 0,
+      h6: pair.volume.h6 || 0,
+      h1: pair.volume.h1 || 0,
+      m5: pair.volume.m5 || 0,
+    },
+    priceChange: {
+      h24: pair.priceChange.h24 || 0,
+      h6: pair.priceChange.h6 || 0,
+      h1: pair.priceChange.h1 || 0,
+      m5: pair.priceChange.m5 || 0,
+    },
+    txns: {
+      h24: {
+        buys: pair.txns.h24?.buys || 0,
+        sells: pair.txns.h24?.sells || 0,
+      },
+      h6: {
+        buys: pair.txns.h6?.buys || 0,
+        sells: pair.txns.h6?.sells || 0,
+      },
+      h1: {
+        buys: pair.txns.h1?.buys || 0,
+        sells: pair.txns.h1?.sells || 0,
+      },
+      m5: {
+        buys: pair.txns.m5?.buys || 0,
+        sells: pair.txns.m5?.sells || 0,
+      },
+    },
+    fdv: pair.fdv,
+    pairCreatedAt: pair.pairCreatedAt,
+
+    // Estimate holders based on transaction activity (rough approximation)
+    holders: Math.floor(
+      ((pair.txns.h24?.buys || 0) + (pair.txns.h24?.sells || 0)) * 2.5
+    ),
+  };
 }
 
 export async function GET() {
-  console.log("🚀 Starting REAL token fetch - trying multiple sources...");
+  try {
+    console.log("🚀 REAL DexScreener API called - fetching live data...");
 
-  const sources = [
-    { name: "Pump.fun", fetch: fetchPumpFunDirect },
-    { name: "DexScreener", fetch: fetchFromDexScreener },
-    { name: "Jupiter", fetch: fetchFromJupiter },
-    { name: "Birdeye", fetch: fetchFromBirdEye },
-  ];
+    const realTokens = await fetchTrendingSolanaTokens();
 
-  for (const source of sources) {
-    try {
-      console.log(`🔄 Trying ${source.name}...`);
-      const tokens = await source.fetch();
-
-      if (tokens.length > 0) {
-        console.log(
-          `🎉 SUCCESS! Got ${tokens.length} REAL tokens from ${source.name}`
-        );
-
-        return NextResponse.json({
-          success: true,
-          tokens: tokens,
-          source: `REAL DATA: ${source.name} (${tokens.length} tokens)`,
-          count: tokens.length,
-          timestamp: new Date().toISOString(),
-          isRealData: true,
-        });
-      }
-    } catch (error) {
-      console.log(`⚠️ ${source.name} failed:`, error);
-      continue;
+    if (realTokens.length === 0) {
+      throw new Error("No tokens received from DexScreener");
     }
-  }
 
-  // If all sources fail
-  console.error("❌ ALL REAL DATA SOURCES FAILED");
+    console.log(
+      `✅ Successfully fetched ${realTokens.length} REAL tokens from DexScreener`
+    );
+    console.log("🔍 Sample real token:", {
+      symbol: realTokens[0]?.symbol,
+      name: realTokens[0]?.name,
+      marketCap: realTokens[0]?.usd_market_cap,
+      volume24h: realTokens[0]?.volume?.h24,
+      liquidity: realTokens[0]?.liquidity?.usd,
+    });
 
-  return NextResponse.json(
-    {
-      success: false,
-      tokens: [],
-      source: "ALL APIS FAILED",
-      count: 0,
+    return NextResponse.json({
+      success: true,
+      tokens: realTokens,
+      source: "DexScreener API (REAL DATA)",
+      count: realTokens.length,
+      isRealData: true,
       timestamp: new Date().toISOString(),
-      isRealData: false,
-      error:
-        "Unable to fetch real token data from any source (Pump.fun, DexScreener, Jupiter, Birdeye)",
-    },
-    { status: 503 }
-  );
+    });
+  } catch (error) {
+    console.error("❌ REAL DexScreener API error:", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        tokens: [],
+        source: "DexScreener API",
+        count: 0,
+        error:
+          error instanceof Error ? error.message : "Unknown DexScreener error",
+        isRealData: false,
+        timestamp: new Date().toISOString(),
+      },
+      { status: 500 }
+    );
+  }
 }

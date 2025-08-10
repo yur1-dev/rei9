@@ -1,4 +1,5 @@
 export interface TokenData {
+  // Core token data (existing)
   mint: string;
   name: string;
   symbol: string;
@@ -7,6 +8,7 @@ export interface TokenData {
   metadata_uri: string;
   twitter?: string;
   telegram?: string;
+  website?: string;
   bonding_curve: string;
   associated_bonding_curve: string;
   creator: string;
@@ -16,7 +18,6 @@ export interface TokenData {
   virtual_sol_reserves: number;
   virtual_token_reserves: number;
   total_supply: number;
-  website?: string;
   show_name: boolean;
   king_of_the_hill_timestamp?: number;
   market_cap: number;
@@ -29,6 +30,46 @@ export interface TokenData {
   username?: string;
   profile_image?: string;
   usd_market_cap: number;
+
+  // DexScreener data
+  holders?: number;
+  liquidity?: {
+    usd: number;
+    base: number;
+    quote: number;
+  };
+  volume?: {
+    h24: number;
+    h6: number;
+    h1: number;
+    m5: number;
+  };
+  priceChange?: {
+    h24: number;
+    h6: number;
+    h1: number;
+    m5: number;
+  };
+  txns?: {
+    h24: {
+      buys: number;
+      sells: number;
+    };
+    h6: {
+      buys: number;
+      sells: number;
+    };
+    h1: {
+      buys: number;
+      sells: number;
+    };
+    m5: {
+      buys: number;
+      sells: number;
+    };
+  };
+  fdv?: number;
+  pairCreatedAt?: number;
 }
 
 export interface TokenAnalytics {

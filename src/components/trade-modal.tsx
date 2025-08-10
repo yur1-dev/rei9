@@ -101,29 +101,22 @@ interface TradingPlatform {
 
 const TRADING_PLATFORMS: TradingPlatform[] = [
   {
-    name: "Axiom",
-    logo: AxiomLogo,
-    color: "bg-purple-600 hover:bg-purple-700",
-    url: (mint) => `https://axiom.trade/token/${mint}`,
+    name: "DexScreener",
+    logo: DexScreenerLogo,
+    color: "bg-gray-600 hover:bg-gray-700",
+    url: (mint) => `https://dexscreener.com/solana/${mint}`,
   },
   {
-    name: "BullX",
-    logo: BullXLogo,
-    color: "bg-green-600 hover:bg-green-700",
-    url: (mint) =>
-      `https://bullx.io/terminal?chainId=1399811149&address=${mint}`,
+    name: "GMGN",
+    logo: GMGNLogo,
+    color: "bg-lime-600 hover:bg-lime-700",
+    url: (mint) => `https://gmgn.ai/sol/token/${mint}`,
   },
   {
     name: "Pump.fun",
     logo: PumpFunLogo,
     color: "bg-blue-600 hover:bg-blue-700",
-    url: (mint) => `https://pump.fun/${mint}`,
-  },
-  {
-    name: "SSE",
-    logo: SSELogo,
-    color: "bg-teal-600 hover:bg-teal-700",
-    url: (mint) => `https://sse.trade/token/${mint}`,
+    url: (mint) => `https://pump.fun/coin/${mint}`,
   },
   {
     name: "Photon",
@@ -132,10 +125,16 @@ const TRADING_PLATFORMS: TradingPlatform[] = [
     url: (mint) => `https://photon-sol.tinyastro.io/en/lp/${mint}`,
   },
   {
-    name: "DexScreener",
-    logo: DexScreenerLogo,
-    color: "bg-gray-600 hover:bg-gray-700",
-    url: (mint) => `https://dexscreener.com/solana/${mint}`,
+    name: "BullX",
+    logo: BullXLogo,
+    color: "bg-green-600 hover:bg-green-700",
+    url: (mint) => `https://bullx.io/terminal?address=${mint}`,
+  },
+  {
+    name: "Axiom",
+    logo: AxiomLogo,
+    color: "bg-purple-600 hover:bg-purple-700",
+    url: (mint) => `https://axiom.trade/${mint}`,
   },
   {
     name: "Nova",
@@ -144,10 +143,10 @@ const TRADING_PLATFORMS: TradingPlatform[] = [
     url: (mint) => `https://nova.trade/token/${mint}`,
   },
   {
-    name: "GMGN",
-    logo: GMGNLogo,
-    color: "bg-lime-600 hover:bg-lime-700",
-    url: (mint) => `https://gmgn.ai/sol/token/${mint}`,
+    name: "SSE",
+    logo: SSELogo,
+    color: "bg-teal-600 hover:bg-teal-700",
+    url: (mint) => `https://solscan.io/token/${mint}`,
   },
 ];
 
@@ -169,6 +168,11 @@ export function TradeButtonWithModal({
     e.stopPropagation();
     console.log("Trade button clicked for:", symbol, mint);
     setShowModal(true);
+  };
+
+  const handleLinkClick = (url: string) => {
+    window.open(url, "_blank", "noopener,noreferrer");
+    setShowModal(false);
   };
 
   return (
@@ -196,8 +200,11 @@ export function TradeButtonWithModal({
               </DialogTitle>
               <button
                 onClick={() => setShowModal(false)}
-                className="text-gray-400 hover:text-white transition-colors"
-              ></button>
+                className="text-gray-400 hover:text-white transition-colors text-xl"
+                type="button"
+              >
+                ×
+              </button>
             </div>
             <p className="text-gray-400 text-sm">
               Choose your preferred platform to trade ${symbol}
@@ -207,7 +214,8 @@ export function TradeButtonWithModal({
             <h3 className="text-lg font-bold text-white">
               AVAILABLE PLATFORMS
             </h3>
-            {/* Warning - NO ROUNDED CORNERS */}
+
+            {/* Warning */}
             <div className="bg-yellow-900/30 border border-yellow-600/50 p-3">
               <div className="flex items-start gap-2">
                 <span className="text-yellow-400 text-sm">💡</span>
@@ -217,27 +225,27 @@ export function TradeButtonWithModal({
                 </p>
               </div>
             </div>
-            {/* Platform Buttons - NO ROUNDED CORNERS */}
+
+            {/* Platform Buttons */}
             <div className="grid grid-cols-2 gap-3">
               {TRADING_PLATFORMS.map((platform) => {
                 const LogoComponent = platform.logo;
                 return (
-                  <a
+                  <button
                     key={platform.name}
-                    href={platform.url(mint)}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    onClick={() => handleLinkClick(platform.url(mint))}
                     className={`${platform.color} text-white font-semibold py-3 px-4 text-center transition-all duration-200 flex items-center justify-center gap-2 hover:scale-[1.02] hover:shadow-lg`}
-                    onClick={() => setShowModal(false)}
+                    type="button"
                   >
                     <LogoComponent className="w-4 h-4" />
                     {platform.name}
-                  </a>
+                  </button>
                 );
               })}
             </div>
-            {/* Warning Footer - NO ROUNDED CORNERS */}
-            <div className="bg-green-900/30 border border-blue-600/50 p-3">
+
+            {/* Info Footer */}
+            <div className="bg-blue-900/30 border border-blue-600/50 p-3">
               <div className="flex items-start gap-2">
                 <span className="text-blue-400 text-sm">💡</span>
                 <p className="text-blue-400 text-sm">
