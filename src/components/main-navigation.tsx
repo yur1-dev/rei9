@@ -2,13 +2,13 @@
 
 import { Button } from "@/components/ui/button";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { Menu, X, Wallet } from "lucide-react";
+import { Menu, X, Wallet, Crown } from "lucide-react";
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
-import { WalletModal } from "@/components/wallet-modal";
 import { LoginModal } from "./login-modal";
 import { CustomWalletSelectionModal } from "./custom-wallet-selection-modal";
 import Link from "next/link";
+import { WalletModal } from "@/components/wallet-modal";
 
 export function MainNavigation() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -24,13 +24,34 @@ export function MainNavigation() {
     }
   }, [connected]);
 
+  // Check if we're on landing page or dashboard pages
+  const isLandingPage = pathname === "/";
+  const isDashboardPage = [
+    "/dashboard",
+    "/performance",
+    "/about",
+    "/access",
+  ].includes(pathname);
+
+  // Smooth scroll function for landing page sections
+  const scrollToSection = (sectionId: string) => {
+    setIsMenuOpen(false);
+    const element = document.getElementById(sectionId);
+    if (element) {
+      element.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }
+  };
+
   const handleConnectClick = () => {
     if (connected) {
-      setIsWalletModalOpen(true); // Show wallet details when already connected
+      setIsWalletModalOpen(true);
     } else if (pathname === "/") {
-      setIsLoginModalOpen(true); // Show login modal on home page
+      setIsLoginModalOpen(true);
     } else {
-      setIsCustomWalletModalOpen(true); // Show wallet selection modal to connect
+      setIsCustomWalletModalOpen(true);
     }
   };
 
@@ -44,7 +65,6 @@ export function MainNavigation() {
         .slice(-4)}`;
     }
     if (pathname === "/") return "REI STREET";
-    if (pathname === "/ai-alpha") return "CONNECT";
     return "CONNECT";
   };
 
@@ -63,6 +83,47 @@ export function MainNavigation() {
     }
   };
 
+  const isActivePage = (path: string) => pathname === path;
+
+  const getCurrentTier = () => {
+    // Mock function to get current tier - in real app this would come from props or context
+    const userTokens = 0; // Since token isn't launched yet
+
+    const accessTiers = [
+      {
+        name: "Street Rookie",
+        tokensRequired: 0,
+        textClass: "text-gray-400",
+        bgClass: "bg-gray-500/20",
+      },
+      {
+        name: "Degen Gambler",
+        tokensRequired: 25000,
+        textClass: "text-red-400",
+        bgClass: "bg-red-500/20",
+      },
+      {
+        name: "Speed Demon",
+        tokensRequired: 50000,
+        textClass: "text-green-400",
+        bgClass: "bg-green-500/20",
+      },
+      {
+        name: "Alpha King",
+        tokensRequired: 100000,
+        textClass: "text-yellow-400",
+        bgClass: "bg-yellow-500/20",
+      },
+    ];
+
+    const qualifiedTiers = accessTiers.filter(
+      (tier) => userTokens >= tier.tokensRequired
+    );
+    return qualifiedTiers.reduce((highest, current) =>
+      current.tokensRequired > highest.tokensRequired ? current : highest
+    );
+  };
+
   return (
     <nav className="fixed top-0 w-full z-50 bg-black/90 backdrop-blur-md border-b border-green-500/20">
       <div className="max-w-7xl mx-auto px-6 lg:px-8">
@@ -71,7 +132,10 @@ export function MainNavigation() {
           <div className="flex items-center">
             <div className="relative cursor-pointer">
               <div className="text-2xl font-black text-green-400 tracking-wider font-heading">
-                <Link href="/" className="relative cursor-pointer">
+                <Link
+                  href={isLandingPage ? "/" : "/dashboard"}
+                  className="relative cursor-pointer"
+                >
                   <div className="text-2xl font-black text-green-400 tracking-wider font-heading">
                     REI9
                   </div>
@@ -80,44 +144,123 @@ export function MainNavigation() {
             </div>
           </div>
 
-          {/* Desktop Navigation - Original Hero/Landing Links */}
+          {/* Desktop Navigation - Conditional based on page type */}
           <div className="hidden md:flex items-center space-x-8">
-            <Button
-              variant="ghost"
-              className="text-gray-300 hover:text-green-400 font-bold uppercase tracking-wide transition-colors duration-200 cursor-pointer"
-            >
-              ABOUT
-            </Button>
-            <Button
-              variant="ghost"
-              className="text-gray-300 hover:text-green-400 font-bold uppercase tracking-wide transition-colors duration-200 cursor-pointer"
-            >
-              COLLECTION
-            </Button>
-            <Button
-              variant="ghost"
-              className="text-gray-300 hover:text-green-400 font-bold uppercase tracking-wide transition-colors duration-200 cursor-pointer"
-            >
-              SIGNALS
-            </Button>
-            <Button
-              variant="ghost"
-              className="text-gray-300 hover:text-green-400 font-bold uppercase tracking-wide transition-colors duration-200 cursor-pointer"
-            >
-              CREW
-            </Button>
+            {isLandingPage ? (
+              // Landing page scroll navigation
+              <>
+                <Button
+                  variant="ghost"
+                  className="text-gray-300 hover:text-green-400 font-bold uppercase tracking-wide transition-colors duration-200 cursor-pointer"
+                  onClick={() => scrollToSection("features")}
+                >
+                  FEATURES
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="text-gray-300 hover:text-green-400 font-bold uppercase tracking-wide transition-colors duration-200 cursor-pointer"
+                  onClick={() => scrollToSection("collection")}
+                >
+                  COLLECTION
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="text-gray-300 hover:text-green-400 font-bold uppercase tracking-wide transition-colors duration-200 cursor-pointer"
+                  onClick={() => scrollToSection("signals")}
+                >
+                  SIGNALS
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="text-gray-300 hover:text-green-400 font-bold uppercase tracking-wide transition-colors duration-200 cursor-pointer"
+                  onClick={() => scrollToSection("crew")}
+                >
+                  CREW
+                </Button>
+              </>
+            ) : (
+              // Dashboard page routing navigation
+              <>
+                <Link
+                  href="/dashboard"
+                  className={`font-bold uppercase tracking-wide transition-colors duration-200 px-3 py-2 rounded ${
+                    isActivePage("/dashboard")
+                      ? "text-green-400 border-b-2 border-green-400"
+                      : "text-gray-300 hover:text-green-400"
+                  }`}
+                >
+                  DASHBOARD
+                </Link>
+                <Link
+                  href="/performance"
+                  className={`font-bold uppercase tracking-wide transition-colors duration-200 px-3 py-2 rounded ${
+                    isActivePage("/performance")
+                      ? "text-green-400 border-b-2 border-green-400"
+                      : "text-gray-300 hover:text-green-400"
+                  }`}
+                >
+                  PERFORMANCE
+                </Link>
+                <Link
+                  href="/about"
+                  className={`font-bold uppercase tracking-wide transition-colors duration-200 px-3 py-2 rounded ${
+                    isActivePage("/about")
+                      ? "text-green-400 border-b-2 border-green-400"
+                      : "text-gray-300 hover:text-green-400"
+                  }`}
+                >
+                  ABOUT
+                </Link>
+                <Link
+                  href="/access"
+                  className={`font-bold uppercase tracking-wide transition-colors duration-200 px-3 py-2 rounded ${
+                    isActivePage("/access")
+                      ? "text-green-400 border-b-2 border-green-400"
+                      : "text-gray-300 hover:text-green-400"
+                  }`}
+                >
+                  ACCESS
+                </Link>
+              </>
+            )}
           </div>
 
-          {/* Right Side - Single Unified Connect Button */}
+          {/* Right Side - Wallet Button with Tier Info */}
           <div className="flex items-center space-x-4">
-            <button
-              onClick={handleConnectClick}
-              className={getButtonStyles()}
-              disabled={connecting}
-            >
-              <Wallet className="w-4 h-4 mr-2" />
-              {getConnectButtonText()}
-            </button>
+            {connected ? (
+              <div className="flex items-center space-x-3">
+                {/* Tier Badge */}
+                <div
+                  className={`hidden md:flex items-center px-3 py-1 rounded-full border ${
+                    getCurrentTier().bgClass
+                  } ${getCurrentTier().textClass} border-current/30`}
+                >
+                  <Crown className="w-3 h-3 mr-1" />
+                  <span className="text-xs font-bold">
+                    {getCurrentTier().name}
+                  </span>
+                </div>
+
+                {/* Wallet Button */}
+                <button
+                  onClick={handleConnectClick}
+                  className={getButtonStyles()}
+                  disabled={connecting}
+                >
+                  <Wallet className="w-4 h-4 mr-2" />
+                  {getConnectButtonText()}
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={handleConnectClick}
+                className={getButtonStyles()}
+                disabled={connecting}
+              >
+                <Wallet className="w-4 h-4 mr-2" />
+                {getConnectButtonText()}
+              </button>
+            )}
 
             {/* Mobile Menu Toggle */}
             <Button
@@ -136,39 +279,113 @@ export function MainNavigation() {
         </div>
       </div>
 
-      {/* Mobile Menu - Original Hero/Landing Links */}
+      {/* Mobile Menu - Conditional based on page type */}
       {isMenuOpen && (
         <div className="md:hidden bg-black/95 backdrop-blur-md border-t border-green-500/20">
           <div className="max-w-7xl mx-auto px-6 lg:px-8 py-4 space-y-2">
-            <Button
-              variant="ghost"
-              className="w-full text-left text-gray-300 hover:text-green-400 font-bold uppercase transition-colors duration-200 cursor-pointer"
-            >
-              ABOUT
-            </Button>
-            <Button
-              variant="ghost"
-              className="w-full text-left text-gray-300 hover:text-green-400 font-bold uppercase transition-colors duration-200 cursor-pointer"
-            >
-              COLLECTION
-            </Button>
-            <Button
-              variant="ghost"
-              className="w-full text-left text-gray-300 hover:text-green-400 font-bold uppercase transition-colors duration-200 cursor-pointer"
-            >
-              SIGNALS
-            </Button>
-            <Button
-              variant="ghost"
-              className="w-full text-left text-gray-300 hover:text-green-400 font-bold uppercase transition-colors duration-200 cursor-pointer"
-            >
-              CREW
-            </Button>
+            {/* Mobile Tier Badge */}
+            {connected && (
+              <div className="mb-4 flex justify-center">
+                <div
+                  className={`flex items-center px-3 py-2 rounded-full border ${
+                    getCurrentTier().bgClass
+                  } ${getCurrentTier().textClass} border-current/30`}
+                >
+                  <Crown className="w-4 h-4 mr-2" />
+                  <span className="text-sm font-bold">
+                    Current Tier: {getCurrentTier().name}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Rest of mobile menu items remain the same */}
+            {isLandingPage ? (
+              // Landing page mobile menu
+              <>
+                <Button
+                  variant="ghost"
+                  className="w-full text-left text-gray-300 hover:text-green-400 font-bold uppercase transition-colors duration-200 cursor-pointer"
+                  onClick={() => scrollToSection("features")}
+                >
+                  FEATURES
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="w-full text-left text-gray-300 hover:text-green-400 font-bold uppercase transition-colors duration-200 cursor-pointer"
+                  onClick={() => scrollToSection("collection")}
+                >
+                  COLLECTION
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="w-full text-left text-gray-300 hover:text-green-400 font-bold uppercase transition-colors duration-200 cursor-pointer"
+                  onClick={() => scrollToSection("signals")}
+                >
+                  SIGNALS
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="w-full text-left text-gray-300 hover:text-green-400 font-bold uppercase transition-colors duration-200 cursor-pointer"
+                  onClick={() => scrollToSection("crew")}
+                >
+                  CREW
+                </Button>
+              </>
+            ) : (
+              // Dashboard mobile menu
+              <>
+                <Link
+                  href="/dashboard"
+                  className={`block w-full text-left font-bold uppercase transition-colors duration-200 px-3 py-2 rounded ${
+                    isActivePage("/dashboard")
+                      ? "text-green-400"
+                      : "text-gray-300 hover:text-green-400"
+                  }`}
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  DASHBOARD
+                </Link>
+                <Link
+                  href="/performance"
+                  className={`block w-full text-left font-bold uppercase transition-colors duration-200 px-3 py-2 rounded ${
+                    isActivePage("/performance")
+                      ? "text-green-400"
+                      : "text-gray-300 hover:text-green-400"
+                  }`}
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  PERFORMANCE
+                </Link>
+                <Link
+                  href="/about"
+                  className={`block w-full text-left font-bold uppercase transition-colors duration-200 px-3 py-2 rounded ${
+                    isActivePage("/about")
+                      ? "text-green-400"
+                      : "text-gray-300 hover:text-green-400"
+                  }`}
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  ABOUT
+                </Link>
+                <Link
+                  href="/access"
+                  className={`block w-full text-left font-bold uppercase transition-colors duration-200 px-3 py-2 rounded ${
+                    isActivePage("/access")
+                      ? "text-green-400"
+                      : "text-gray-300 hover:text-green-400"
+                  }`}
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  ACCESS
+                </Link>
+              </>
+            )}
 
             {/* Mobile Connect Button */}
             <button
               onClick={handleConnectClick}
-              className={`${getButtonStyles()} w-full justify-start`}
+              className={`${getButtonStyles()} w-full justify-start mt-4`}
               disabled={connecting}
             >
               <Wallet className="w-4 h-4 mr-2" />

@@ -4,7 +4,7 @@ import type React from "react";
 import Image from "next/image";
 
 import { useRealtimeTokens } from "@/app/hooks/use-realtime-tokens";
-import { TradeButtonWithModal } from "../trade-modal";
+import { TradeButtonWithModal } from "@/components/trade-modal";
 import {
   RefreshCw,
   AlertTriangle,
@@ -41,8 +41,8 @@ type CategoryKey = keyof Pick<
   "highestGainer" | "fastestRunner" | "gambleBox"
 >;
 
-// Import categorizeTokens function
-const categorizeTokens = (tokens: TokenData[]): CategorizedTokens => {
+// SMART categorization for NEW tokens with trading potential
+const categorizeTokensForTrading = (tokens: TokenData[]): CategorizedTokens => {
   if (!tokens || tokens.length === 0) {
     return {
       highestGainer: [],
@@ -56,66 +56,135 @@ const categorizeTokens = (tokens: TokenData[]): CategorizedTokens => {
     };
   }
 
-  // Sort tokens by market cap
-  const sortedTokens = tokens.sort(
-    (a, b) => b.usd_market_cap - a.usd_market_cap
-  );
+  const now = Date.now();
 
-  // Categorize based on market cap thresholds
+  // Sort by creation time and trading potential for NEW tokens
+  const sortedTokens = [...tokens].sort((a, b) => {
+    // Prioritize very recent tokens (last 6 hours)
+    const aAge = (now - a.created_timestamp) / (1000 * 60 * 60);
+    const bAge = (now - b.created_timestamp) / (1000 * 60 * 60);
+
+    // Fresh tokens get priority
+    if (aAge < 6 && bAge >= 6) return -1;
+    if (bAge < 6 && aAge >= 6) return 1;
+
+    // Then by market cap for established tokens
+    const mcDiff = b.usd_market_cap - a.usd_market_cap;
+    if (Math.abs(mcDiff) > 10000) return mcDiff;
+
+    // Finally by activity/engagement
+    const activityDiff = b.reply_count - a.reply_count;
+    return activityDiff;
+  });
+
+  // 🏆 HIGHEST GAINER: Established new tokens with good performance (>$50K)
   const highestGainer = sortedTokens
-    .filter((token) => token.usd_market_cap > 100000)
-    .slice(0, 10);
-
-  const fastestRunner = sortedTokens
-    .filter(
-      (token) =>
-        token.usd_market_cap >= 10000 &&
-        token.usd_market_cap <= 100000 &&
-        !highestGainer.includes(token)
-    )
-    .slice(0, 8);
-
-  const gambleBox = sortedTokens
-    .filter(
-      (token) =>
-        token.usd_market_cap < 10000 &&
-        !highestGainer.includes(token) &&
-        !fastestRunner.includes(token)
-    )
+    .filter((token) => {
+      const ageInHours = (now - token.created_timestamp) / (1000 * 60 * 60);
+      const volume24h = token.volume && token.volume.h24 ? token.volume.h24 : 0;
+      return (
+        token.usd_market_cap > 50000 && // Market cap > $50K (as per About page)
+        ageInHours < 48 && // Less than 2 days old
+        volume24h > 1000 && // Some volume
+        token.reply_count > 30 // Some community engagement
+      );
+    })
     .slice(0, 12);
 
-  // If categories are empty, distribute tokens
-  if (
-    gambleBox.length === 0 &&
-    fastestRunner.length === 0 &&
-    highestGainer.length === 0
-  ) {
-    const distributed = sortedTokens.slice(0, 15);
-    return {
-      gambleBox: distributed.slice(0, 5),
-      fastestRunner: distributed.slice(5, 10),
-      highestGainer: distributed.slice(10, 15),
-      analytics: {
-        totalTracked: tokens.length,
-        recentGraduations: 0,
-        stageDistribution: { gamble: 5, runner: 5, gainer: 5 },
-      },
-    };
+  // ⚡ FASTEST RUNNER: Mid-tier new tokens with momentum ($5K-$50K)
+  const fastestRunner = sortedTokens
+    .filter((token) => {
+      const ageInHours = (now - token.created_timestamp) / (1000 * 60 * 60);
+      return (
+        !highestGainer.includes(token) &&
+        ageInHours < 24 && // Less than 1 day old
+        token.usd_market_cap >= 5000 && // Market cap >= $5K (as per About page)
+        token.usd_market_cap <= 50000 && // Market cap <= $50K (as per About page)
+        token.reply_count > 15 // Some community activity
+      );
+    })
+    .slice(0, 10);
+
+  // 🎲 GAMBLE BOX: Very fresh tokens with small caps (<$5K)
+  const gambleBox = sortedTokens
+    .filter((token) => {
+      const ageInHours = (now - token.created_timestamp) / (1000 * 60 * 60);
+      return (
+        !highestGainer.includes(token) &&
+        !fastestRunner.includes(token) &&
+        ageInHours < 12 && // Very fresh (less than 12 hours)
+        token.usd_market_cap < 5000 // Market cap < $5K (as per About page)
+      );
+    })
+    .slice(0, 15);
+
+  // If categories are still empty, distribute remaining tokens intelligently
+  const allCategorized = [...highestGainer, ...fastestRunner, ...gambleBox];
+  const remaining = sortedTokens.filter(
+    (token) => !allCategorized.includes(token)
+  );
+
+  if (remaining.length > 0) {
+    console.log(`📝 Distributing ${remaining.length} remaining tokens...`);
+
+    // Fill empty categories with best remaining tokens
+    if (highestGainer.length === 0) {
+      const bestRemaining = remaining
+        .filter((t) => t.usd_market_cap > 30000) // Lower threshold for fallback
+        .slice(0, 3);
+      highestGainer.push(...bestRemaining);
+    }
+
+    if (fastestRunner.length === 0) {
+      const midTierRemaining = remaining
+        .filter(
+          (t) =>
+            !highestGainer.includes(t) &&
+            t.usd_market_cap > 2000 &&
+            t.usd_market_cap < 30000
+        )
+        .slice(0, 3);
+      fastestRunner.push(...midTierRemaining);
+    }
+
+    if (gambleBox.length === 0) {
+      const freshRemaining = remaining
+        .filter(
+          (t) =>
+            !highestGainer.includes(t) &&
+            !fastestRunner.includes(t) &&
+            t.usd_market_cap < 10000
+        )
+        .slice(0, 5);
+      gambleBox.push(...freshRemaining);
+    }
   }
+
+  const analytics = {
+    totalTracked: tokens.length,
+    recentGraduations: tokens.filter((t) => t.complete).length,
+    stageDistribution: {
+      gamble: gambleBox.length,
+      runner: fastestRunner.length,
+      gainer: highestGainer.length,
+    },
+  };
+
+  console.log("🎯 SMART Token Categorization (Updated to match About page):");
+  console.log(
+    `  👑 Highest Gainers: ${highestGainer.length} (>$50K market cap)`
+  );
+  console.log(
+    `  ⚡ Fastest Runners: ${fastestRunner.length} ($5K-$50K market cap)`
+  );
+  console.log(`  🎲 Gamble Box: ${gambleBox.length} (<$5K market cap)`);
+  console.log(`  📊 Total tracked: ${analytics.totalTracked}`);
 
   return {
     highestGainer,
     fastestRunner,
     gambleBox,
-    analytics: {
-      totalTracked: tokens.length,
-      recentGraduations: 0,
-      stageDistribution: {
-        gamble: gambleBox.length,
-        runner: fastestRunner.length,
-        gainer: highestGainer.length,
-      },
-    },
+    analytics,
   };
 };
 
@@ -126,7 +195,7 @@ const TokenImage = ({ token }: { token: TokenData }) => {
 
   if (!token.image_uri || imageError) {
     return (
-      <div className="w-12 h-12 bg-gray-800 flex items-center justify-center text-gray-300 text-xs font-bold border border-gray-600">
+      <div className="w-12 h-12 bg-gray-800 flex items-center justify-center text-gray-300 text-xs font-bold border border-gray-600 rounded">
         {token.symbol.slice(0, 3)}
       </div>
     );
@@ -144,7 +213,7 @@ const TokenImage = ({ token }: { token: TokenData }) => {
           alt={token.symbol}
           width={48}
           height={48}
-          className="w-12 h-12 object-cover border border-gray-600 transition-all duration-300 group-hover:border-blue-400 group-hover:shadow-lg group-hover:shadow-blue-400/50 group-hover:scale-105"
+          className="w-12 h-12 object-cover border border-gray-600 rounded transition-all duration-300 group-hover:border-blue-400 group-hover:shadow-lg group-hover:shadow-blue-400/50 group-hover:scale-105"
           onError={() => setImageError(true)}
         />
 
@@ -193,7 +262,10 @@ const CopyButton = ({ text }: { text: string }) => {
   }, [text]);
 
   return (
-    <button onClick={handleCopy} className="ml-1 opacity-60 hover:opacity-100">
+    <button
+      onClick={handleCopy}
+      className="ml-1 opacity-60 hover:opacity-100 transition-opacity"
+    >
       {copied ? (
         <CheckCircle className="w-3 h-3 text-green-400" />
       ) : (
@@ -219,17 +291,59 @@ const SocialIcon = ({
         href={href}
         target="_blank"
         rel="noopener noreferrer"
-        className="w-6 h-6 bg-gray-800 hover:bg-gray-700 flex items-center justify-center text-gray-400 hover:text-white text-xs"
+        className="w-6 h-6 bg-gray-800 hover:bg-gray-700 flex items-center justify-center text-gray-400 hover:text-white text-xs rounded transition-colors"
       >
         {icon}
       </a>
     );
   }
   return (
-    <div className="w-6 h-6 bg-gray-800/50 flex items-center justify-center text-gray-600 text-xs">
+    <div className="w-6 h-6 bg-gray-800/50 flex items-center justify-center text-gray-600 text-xs rounded">
       {icon}
     </div>
   );
+};
+
+// Enhanced gain calculation based on token age and performance
+const calculateRealisticGains = (token: TokenData, category: string) => {
+  const ageInHours = (Date.now() - token.created_timestamp) / (1000 * 60 * 60);
+  const volume24h = token.volume && token.volume.h24 ? token.volume.h24 : 0;
+  const priceChange24h =
+    token.priceChange && token.priceChange.h24 ? token.priceChange.h24 : 0;
+
+  let baseGain: number;
+  let potentialMultiplier: number;
+
+  if (category === "highestGainer") {
+    // Established performers - more conservative but proven
+    baseGain = Math.max(2.0, Math.min(8, 1 + Math.abs(priceChange24h) / 50));
+    potentialMultiplier = 1.2 + (volume24h / 100000) * 0.3;
+  } else if (category === "fastestRunner") {
+    // Momentum plays - moderate risk/reward
+    baseGain = Math.max(1.5, Math.min(12, 1 + token.reply_count / 50));
+    potentialMultiplier = 1.5 + (token.usd_market_cap / 50000) * 0.2;
+  } else {
+    // Gamble box - high risk but massive potential
+    const freshnessBonus = Math.max(1, 24 / Math.max(ageInHours, 1));
+    baseGain = Math.max(1.2, Math.min(50, freshnessBonus));
+    potentialMultiplier = 2.0 + Math.random() * 3.0; // 2x to 5x potential
+  }
+
+  const currentGain = Math.max(1.1, baseGain);
+  const highestGain = currentGain * potentialMultiplier;
+  const calledPrice = token.usd_market_cap / currentGain;
+
+  return {
+    current: currentGain,
+    highest: highestGain,
+    calledPrice,
+    risk:
+      category === "gambleBox"
+        ? "HIGH"
+        : category === "fastestRunner"
+        ? "MEDIUM"
+        : "LOW",
+  };
 };
 
 // Main component
@@ -245,7 +359,7 @@ export function AlphaCalls() {
 
   const categorizedTokens = useMemo(() => {
     try {
-      return categorizeTokens(tokens);
+      return categorizeTokensForTrading(tokens); // Use smart categorization!
     } catch (error) {
       console.error("Error categorizing tokens:", error);
       return {
@@ -284,29 +398,6 @@ export function AlphaCalls() {
     return "Just now";
   }, []);
 
-  const getGainData = useCallback((token: TokenData, category: string) => {
-    const ageInHours =
-      (Date.now() - token.created_timestamp) / (1000 * 60 * 60);
-    let baseGain: number;
-
-    if (category === "highestGainer") {
-      baseGain = Math.max(
-        2.0,
-        Math.min(8, (token.usd_market_cap / 100000) * 2)
-      );
-    } else if (category === "fastestRunner") {
-      baseGain = Math.max(1.5, Math.min(6, (token.reply_count / 100) * 2));
-    } else {
-      baseGain = Math.max(1.2, Math.min(20, 24 / Math.max(ageInHours, 1)));
-    }
-
-    const currentGain = Math.max(1.1, baseGain);
-    const highestGain = currentGain * (1.3 + Math.random() * 0.7);
-    const calledPrice = token.usd_market_cap / currentGain;
-
-    return { current: currentGain, highest: highestGain, calledPrice };
-  }, []);
-
   // Rotation state with proper typing
   const [indices, setIndices] = useState<Record<CategoryKey, number>>({
     gambleBox: 0,
@@ -339,6 +430,7 @@ export function AlphaCalls() {
     {
       key: "gambleBox" as CategoryKey,
       title: "Gamble Box",
+      subtitle: "High Risk • High Reward",
       icon: "🎲",
       bgClass: "bg-red-900/20",
       borderClass: "border-red-500/30",
@@ -349,6 +441,7 @@ export function AlphaCalls() {
     {
       key: "fastestRunner" as CategoryKey,
       title: "Fastest Runner",
+      subtitle: "Medium Risk • Good Momentum",
       icon: "⚡",
       bgClass: "bg-green-900/20",
       borderClass: "border-green-500/30",
@@ -359,6 +452,7 @@ export function AlphaCalls() {
     {
       key: "highestGainer" as CategoryKey,
       title: "Highest Gainer",
+      subtitle: "Lower Risk • Proven Performance",
       icon: "👑",
       bgClass: "bg-yellow-900/20",
       borderClass: "border-yellow-500/30",
@@ -373,25 +467,30 @@ export function AlphaCalls() {
     return (
       <div className="text-center py-8">
         <RefreshCw className="w-8 h-8 text-blue-400 animate-spin mx-auto mb-2" />
-        <p className="text-gray-400">Initializing...</p>
+        <p className="text-gray-400">Initializing Alpha Calls...</p>
       </div>
     );
   }
 
   // Debug info
-  console.log("🔍 Debug Info:", {
+  console.log("🔍 AlphaCalls Debug:", {
     isClient,
     isConnected,
     tokensLength: tokens.length,
     connectionStatus,
     dataSource,
+    categorized: {
+      gainers: categorizedTokens.highestGainer.length,
+      runners: categorizedTokens.fastestRunner.length,
+      gambles: categorizedTokens.gambleBox.length,
+    },
   });
 
   if (!isConnected || tokens.length === 0) {
     return (
       <div className="text-center py-8">
         <AlertTriangle className="w-8 h-8 text-red-400 mx-auto mb-2" />
-        <p className="text-red-400 font-bold">API ERROR - NO REAL DATA</p>
+        <p className="text-red-400 font-bold">⚠️ NO FRESH TOKENS DETECTED</p>
         <p className="text-gray-500 text-sm">
           Status: {connectionStatus} | Source: {dataSource}
         </p>
@@ -407,10 +506,10 @@ export function AlphaCalls() {
         </div>
         <button
           onClick={refetch}
-          className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-semibold flex items-center gap-2 mx-auto"
+          className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-semibold flex items-center gap-2 mx-auto transition-colors"
         >
           <RefreshCw className="w-4 h-4" />
-          Retry Connection
+          Hunt for Fresh Tokens
         </button>
       </div>
     );
@@ -418,11 +517,37 @@ export function AlphaCalls() {
 
   return (
     <div className="space-y-4">
-      {/* Debug Header */}
-      <div className="bg-green-900/20 border border-green-500/30 p-3 rounded">
-        <p className="text-green-400 text-sm">
-          ✅ Connected: {tokens.length} tokens from {dataSource}
-        </p>
+      {/* Enhanced Status Header */}
+      <div className="bg-green-900/20 border border-green-500/30 p-4 rounded-lg">
+        <div className="flex items-center justify-between">
+          <p className="text-green-400 text-sm font-medium">
+            🎯 ALPHA DETECTED: {tokens.length} fresh tokens analyzed
+          </p>
+          <div className="text-xs text-gray-400">
+            Source: {dataSource} • Last update:{" "}
+            {new Date().toLocaleTimeString()}
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-4 mt-2 text-xs">
+          <div className="text-center">
+            <span className="text-yellow-400 font-bold">
+              {categorizedTokens.highestGainer.length}
+            </span>
+            <span className="text-gray-400 ml-1">Proven</span>
+          </div>
+          <div className="text-center">
+            <span className="text-green-400 font-bold">
+              {categorizedTokens.fastestRunner.length}
+            </span>
+            <span className="text-gray-400 ml-1">Momentum</span>
+          </div>
+          <div className="text-center">
+            <span className="text-red-400 font-bold">
+              {categorizedTokens.gambleBox.length}
+            </span>
+            <span className="text-gray-400 ml-1">Fresh</span>
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -435,39 +560,53 @@ export function AlphaCalls() {
             return (
               <div
                 key={category.key}
-                className={`${category.bgClass} border ${category.borderClass} p-4`}
+                className={`${category.bgClass} border ${category.borderClass} p-4 rounded-lg`}
               >
                 <div className="flex items-center gap-2 mb-4">
                   <span className="text-lg">{category.icon}</span>
-                  <h3 className={`font-bold ${category.textClass} text-sm`}>
-                    {category.title}
-                  </h3>
+                  <div>
+                    <h3 className={`font-bold ${category.textClass} text-sm`}>
+                      {category.title}
+                    </h3>
+                    <p className="text-gray-500 text-xs">{category.subtitle}</p>
+                  </div>
                 </div>
                 <div className="text-center py-8">
                   <RefreshCw
                     className={`w-6 h-6 ${category.textClass} opacity-50 animate-spin mx-auto`}
                   />
                   <p className="text-gray-500 text-xs mt-2">
-                    Waiting for tokens...
+                    Scanning for tokens...
                   </p>
                 </div>
               </div>
             );
           }
 
-          const gainData = getGainData(token, category.key);
+          const gainData = calculateRealisticGains(token, category.key);
+          const ageInHours =
+            (Date.now() - token.created_timestamp) / (1000 * 60 * 60);
+          const isVeryFresh = ageInHours < 6;
 
           return (
             <div
               key={`${category.key}-${token.mint}`}
-              className={`${category.bgClass} border ${category.borderClass} p-4`}
+              className={`${category.bgClass} border ${category.borderClass} p-4 rounded-lg transition-all duration-300 hover:shadow-lg`}
             >
               {/* Header */}
               <div className="flex items-center gap-2 mb-3">
                 <span className="text-lg">{category.icon}</span>
-                <h3 className={`font-bold ${category.textClass} text-sm`}>
-                  {category.title}
-                </h3>
+                <div className="flex-1">
+                  <h3 className={`font-bold ${category.textClass} text-sm`}>
+                    {category.title}
+                  </h3>
+                  <p className="text-gray-500 text-xs">{category.subtitle}</p>
+                </div>
+                {isVeryFresh && (
+                  <span className="bg-red-500/20 text-red-400 text-xs px-2 py-1 rounded">
+                    🔥 HOT
+                  </span>
+                )}
               </div>
 
               {/* Token Info */}
@@ -528,12 +667,12 @@ export function AlphaCalls() {
               <TradeButtonWithModal
                 mint={token.mint}
                 symbol={token.symbol}
-                className={`w-full ${category.buttonClass} border font-semibold py-2 px-3 text-sm flex items-center justify-center gap-1 transition-colors mb-3 cursor-pointer`}
+                className={`w-full ${category.buttonClass} border font-semibold py-2 px-3 text-sm flex items-center justify-center gap-1 transition-colors mb-3 cursor-pointer rounded`}
               />
 
               {/* Stats */}
               <div className="grid grid-cols-3 gap-2 text-xs">
-                <div className="bg-gray-800/50 p-2 text-center">
+                <div className="bg-gray-800/50 p-2 text-center rounded">
                   <p className="text-gray-400 mb-1">
                     Called {getTimeAgo(token.created_timestamp)}
                   </p>
@@ -541,14 +680,14 @@ export function AlphaCalls() {
                     {formatMarketCap(gainData.calledPrice)}
                   </p>
                 </div>
-                <div className="bg-gray-800/50 p-2 text-center">
+                <div className="bg-gray-800/50 p-2 text-center rounded">
                   <p className="text-gray-400 mb-1">Current Gain</p>
                   <p className={`font-bold ${category.textClass}`}>
                     {gainData.current.toFixed(1)}x
                   </p>
                 </div>
-                <div className="bg-gray-800/50 p-2 text-center">
-                  <p className="text-gray-400 mb-1">Highest Gain</p>
+                <div className="bg-gray-800/50 p-2 text-center rounded">
+                  <p className="text-gray-400 mb-1">Max Potential</p>
                   <p className={`font-bold ${category.textClass}`}>
                     {gainData.highest.toFixed(1)}x
                   </p>

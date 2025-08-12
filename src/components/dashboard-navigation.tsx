@@ -1,0 +1,215 @@
+"use client";
+
+import { Button } from "@/components/ui/button";
+import { useWallet } from "@solana/wallet-adapter-react";
+import { Menu, X, Wallet } from "lucide-react";
+import { useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
+import { WalletModal } from "@/components/wallet-modal";
+import { CustomWalletSelectionModal } from "./custom-wallet-selection-modal";
+import Link from "next/link";
+
+export function DashboardNavigation() {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
+  const [isCustomWalletModalOpen, setIsCustomWalletModalOpen] = useState(false);
+  const { connected, publicKey, connecting } = useWallet();
+  const pathname = usePathname();
+
+  useEffect(() => {
+    if (connected) {
+      setIsCustomWalletModalOpen(false);
+    }
+  }, [connected]);
+
+  const handleConnectClick = () => {
+    if (connected) {
+      setIsWalletModalOpen(true);
+    } else {
+      setIsCustomWalletModalOpen(true);
+    }
+  };
+
+  const getConnectButtonText = () => {
+    if (connecting) return "CONNECTING...";
+    if (connected && publicKey) {
+      return `${publicKey.toString().slice(0, 4)}...${publicKey
+        .toString()
+        .slice(-4)}`;
+    }
+    return "CONNECT";
+  };
+
+  const getButtonStyles = () => {
+    const baseStyles =
+      "px-6 py-2 font-bold uppercase tracking-wide text-sm border-2 transition-all duration-300 hover:scale-105 flex items-center cursor-pointer";
+    if (connecting) {
+      return `${baseStyles} bg-yellow-500/20 border-yellow-400 text-yellow-400 cursor-not-allowed`;
+    }
+    if (connected) {
+      return `${baseStyles} bg-green-500/20 border-green-400 text-green-400 hover:bg-green-500/30`;
+    }
+    return `${baseStyles} bg-gradient-to-r from-green-500 to-emerald-500 border-green-400 text-black hover:from-green-400 hover:to-emerald-400`;
+  };
+
+  const isActivePage = (path: string) => pathname === path;
+
+  return (
+    <nav className="fixed top-0 w-full z-50 bg-black/90 backdrop-blur-md border-b border-green-500/20">
+      <div className="max-w-7xl mx-auto px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16">
+          <div className="flex items-center">
+            <Link href="/dashboard" className="relative cursor-pointer">
+              <div className="text-2xl font-black text-green-400 tracking-wider font-heading">
+                REI9
+              </div>
+            </Link>
+          </div>
+
+          <div className="hidden md:flex items-center space-x-8">
+            <Link href="/dashboard">
+              <Button
+                variant="ghost"
+                className={`font-bold uppercase tracking-wide transition-colors duration-200 ${
+                  isActivePage("/dashboard")
+                    ? "text-green-400 border-b-2 border-green-400"
+                    : "text-gray-300 hover:text-green-400"
+                }`}
+              >
+                DASHBOARD
+              </Button>
+            </Link>
+            <Link href="/performance">
+              <Button
+                variant="ghost"
+                className={`font-bold uppercase tracking-wide transition-colors duration-200 ${
+                  isActivePage("/performance")
+                    ? "text-green-400 border-b-2 border-green-400"
+                    : "text-gray-300 hover:text-green-400"
+                }`}
+              >
+                PERFORMANCE
+              </Button>
+            </Link>
+            <Link href="/about">
+              <Button
+                variant="ghost"
+                className={`font-bold uppercase tracking-wide transition-colors duration-200 ${
+                  isActivePage("/about")
+                    ? "text-green-400 border-b-2 border-green-400"
+                    : "text-gray-300 hover:text-green-400"
+                }`}
+              >
+                ABOUT
+              </Button>
+            </Link>
+            <Link href="/access">
+              <Button
+                variant="ghost"
+                className={`font-bold uppercase tracking-wide transition-colors duration-200 ${
+                  isActivePage("/access")
+                    ? "text-green-400 border-b-2 border-green-400"
+                    : "text-gray-300 hover:text-green-400"
+                }`}
+              >
+                ACCESS
+              </Button>
+            </Link>
+          </div>
+
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={handleConnectClick}
+              className={getButtonStyles()}
+              disabled={connecting}
+            >
+              <Wallet className="w-4 h-4 mr-2" />
+              {getConnectButtonText()}
+            </button>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              className="md:hidden text-green-400 hover:text-green-300 transition-colors duration-200"
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+            >
+              {isMenuOpen ? (
+                <X className="w-6 h-6" />
+              ) : (
+                <Menu className="w-6 h-6" />
+              )}
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {isMenuOpen && (
+        <div className="md:hidden bg-black/95 backdrop-blur-md border-t border-green-500/20">
+          <div className="max-w-7xl mx-auto px-6 lg:px-8 py-4 space-y-2">
+            <Link href="/dashboard">
+              <Button
+                variant="ghost"
+                className={`w-full text-left font-bold uppercase transition-colors duration-200 ${
+                  isActivePage("/dashboard")
+                    ? "text-green-400"
+                    : "text-gray-300 hover:text-green-400"
+                }`}
+                onClick={() => setIsMenuOpen(false)}
+              >
+                DASHBOARD
+              </Button>
+            </Link>
+            <Link href="/performance">
+              <Button
+                variant="ghost"
+                className={`w-full text-left font-bold uppercase transition-colors duration-200 ${
+                  isActivePage("/performance")
+                    ? "text-green-400"
+                    : "text-gray-300 hover:text-green-400"
+                }`}
+                onClick={() => setIsMenuOpen(false)}
+              >
+                PERFORMANCE
+              </Button>
+            </Link>
+            <Link href="/about">
+              <Button
+                variant="ghost"
+                className={`w-full text-left font-bold uppercase transition-colors duration-200 ${
+                  isActivePage("/about")
+                    ? "text-green-400"
+                    : "text-gray-300 hover:text-green-400"
+                }`}
+                onClick={() => setIsMenuOpen(false)}
+              >
+                ABOUT
+              </Button>
+            </Link>
+            <Link href="/access">
+              <Button
+                variant="ghost"
+                className={`w-full text-left font-bold uppercase transition-colors duration-200 ${
+                  isActivePage("/access")
+                    ? "text-green-400"
+                    : "text-gray-300 hover:text-green-400"
+                }`}
+                onClick={() => setIsMenuOpen(false)}
+              >
+                ACCESS
+              </Button>
+            </Link>
+          </div>
+        </div>
+      )}
+
+      <WalletModal
+        isOpen={isWalletModalOpen}
+        onClose={() => setIsWalletModalOpen(false)}
+      />
+      <CustomWalletSelectionModal
+        isOpen={isCustomWalletModalOpen}
+        onClose={() => setIsCustomWalletModalOpen(false)}
+      />
+    </nav>
+  );
+}
