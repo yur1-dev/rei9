@@ -81,7 +81,7 @@ const categorizeTokensForTrading = (tokens: TokenData[]): CategorizedTokens => {
   const highestGainer = sortedTokens
     .filter((token) => {
       const ageInHours = (now - token.created_timestamp) / (1000 * 60 * 60);
-      const volume24h = token.volume && token.volume.h24 ? token.volume.h24 : 0;
+      const volume24h = token.volume?.h24 || 0;
       return (
         token.usd_market_cap > 50000 && // Market cap > $50K (as per About page)
         ageInHours < 48 && // Less than 2 days old
@@ -209,7 +209,7 @@ const TokenImage = ({ token }: { token: TokenData }) => {
         onMouseLeave={() => setShowPreview(false)}
       >
         <Image
-          src={token.image_uri || "/placeholder.svg"}
+          src={token.image_uri}
           alt={token.symbol}
           width={48}
           height={48}
@@ -229,7 +229,7 @@ const TokenImage = ({ token }: { token: TokenData }) => {
           >
             <div className="bg-black/90 backdrop-blur-sm border-2 border-blue-400 rounded-2xl p-4 shadow-2xl">
               <Image
-                src={token.image_uri || "/placeholder.svg"}
+                src={token.image_uri}
                 alt={token.symbol}
                 width={128}
                 height={128}
@@ -307,9 +307,8 @@ const SocialIcon = ({
 // Enhanced gain calculation based on token age and performance
 const calculateRealisticGains = (token: TokenData, category: string) => {
   const ageInHours = (Date.now() - token.created_timestamp) / (1000 * 60 * 60);
-  const volume24h = token.volume && token.volume.h24 ? token.volume.h24 : 0;
-  const priceChange24h =
-    token.priceChange && token.priceChange.h24 ? token.priceChange.h24 : 0;
+  const volume24h = token.volume?.h24 || 0;
+  const priceChange24h = token.priceChange?.h24 || 0;
 
   let baseGain: number;
   let potentialMultiplier: number;
@@ -346,11 +345,73 @@ const calculateRealisticGains = (token: TokenData, category: string) => {
   };
 };
 
+// Define the hook return type
+interface UseRealtimeTokensReturn {
+  tokens?: TokenData[];
+  isConnected?: boolean;
+  connectionStatus?: string;
+  [key: string]: any;
+}
+
 // Main component
 export function AlphaCalls() {
   const [isClient, setIsClient] = useState(false);
-  const { tokens, isConnected, connectionStatus, dataSource, refetch } =
-    useRealtimeTokens();
+
+  // Use the hook data with proper typing
+  const hookData = useRealtimeTokens() as UseRealtimeTokensReturn | TokenData[];
+
+  // Extract data based on what the hook returns
+  const tokens: TokenData[] = useMemo(() => {
+    if (Array.isArray(hookData)) {
+      return hookData;
+    } else if (
+      hookData &&
+      typeof hookData === "object" &&
+      "tokens" in hookData
+    ) {
+      return hookData.tokens || [];
+    }
+    return [];
+  }, [hookData]);
+
+  const isConnected = useMemo(() => {
+    if (Array.isArray(hookData)) {
+      return hookData.length > 0;
+    } else if (
+      hookData &&
+      typeof hookData === "object" &&
+      "isConnected" in hookData
+    ) {
+      return hookData.isConnected || false;
+    }
+    return false;
+  }, [hookData]);
+
+  const connectionStatus = useMemo(() => {
+    if (Array.isArray(hookData)) {
+      return hookData.length > 0 ? "Connected" : "No tokens";
+    } else if (
+      hookData &&
+      typeof hookData === "object" &&
+      "connectionStatus" in hookData
+    ) {
+      return hookData.connectionStatus || "Unknown";
+    }
+    return "Connecting...";
+  }, [hookData]);
+
+  const refetch = useCallback(() => {
+    console.log("Refetch requested");
+    // Add your refetch logic here if the hook provides it
+    if (
+      hookData &&
+      typeof hookData === "object" &&
+      "refetch" in hookData &&
+      typeof hookData.refetch === "function"
+    ) {
+      hookData.refetch();
+    }
+  }, [hookData]);
 
   // Ensure client-side rendering
   useEffect(() => {
@@ -478,7 +539,6 @@ export function AlphaCalls() {
     isConnected,
     tokensLength: tokens.length,
     connectionStatus,
-    dataSource,
     categorized: {
       gainers: categorizedTokens.highestGainer.length,
       runners: categorizedTokens.fastestRunner.length,
@@ -491,9 +551,7 @@ export function AlphaCalls() {
       <div className="text-center py-8">
         <AlertTriangle className="w-8 h-8 text-red-400 mx-auto mb-2" />
         <p className="text-red-400 font-bold">⚠️ NO FRESH TOKENS DETECTED</p>
-        <p className="text-gray-500 text-sm">
-          Status: {connectionStatus} | Source: {dataSource}
-        </p>
+        <p className="text-gray-500 text-sm">Status: {connectionStatus}</p>
         <div className="mt-4 bg-gray-900/50 border border-gray-700 p-4 rounded-lg max-w-md mx-auto">
           <p className="text-sm text-gray-300 mb-2">Debug Info:</p>
           <p className="text-xs text-gray-400">Tokens: {tokens.length}</p>
@@ -524,8 +582,7 @@ export function AlphaCalls() {
             🎯 ALPHA DETECTED: {tokens.length} fresh tokens analyzed
           </p>
           <div className="text-xs text-gray-400">
-            Source: {dataSource} • Last update:{" "}
-            {new Date().toLocaleTimeString()}
+            Last update: {new Date().toLocaleTimeString()}
           </div>
         </div>
         <div className="grid grid-cols-3 gap-4 mt-2 text-xs">

@@ -111,7 +111,7 @@ export default function AboutPage() {
       <main className="relative z-10 max-w-7xl mx-auto px-6 lg:px-8 py-8 md:py-12 pt-24">
         <div className="space-y-16">
           {/* Header */}
-          <div className="text-center space-y-6">
+          <div className="text-center space-y-6 mt-8">
             <h1 className="text-4xl md:text-6xl font-black text-green-400 tracking-wider font-heading">
               ABOUT REI9
             </h1>

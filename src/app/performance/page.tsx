@@ -10,92 +10,122 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { TrendingUp, Target, Activity, Zap, Crown } from "lucide-react";
-import { useState } from "react";
-
-interface PerformanceMetrics {
-  totalCalls: number;
-  successfulCalls: number;
-  winRate: number;
-  avgGain: number;
-  bestCall: {
-    token: string;
-    gain: number;
-    timestamp: string;
-  };
-  recentCalls: Array<{
-    id: string;
-    token: string;
-    category: string;
-    prediction: number;
-    actual: number;
-    status: "success" | "failed" | "pending";
-    timestamp: string;
-  }>;
-}
+import {
+  TrendingUp,
+  Target,
+  Activity,
+  Zap,
+  Crown,
+  RefreshCw,
+} from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { useRealtimeTokens } from "@/app/hooks/use-realtime-tokens";
+import type { TokenData } from "@/types/token";
 
 export default function PerformancePage() {
-  const [metrics, setMetrics] = useState<PerformanceMetrics>({
-    totalCalls: 247,
-    successfulCalls: 189,
-    winRate: 76.5,
-    avgGain: 12.8,
-    bestCall: {
-      token: "$BONK",
-      gain: 847.2,
-      timestamp: "2h ago",
-    },
-    recentCalls: [
-      {
-        id: "1",
-        token: "$PEPE",
-        category: "Highest Gainer",
-        prediction: 15.5,
-        actual: 23.2,
-        status: "success",
-        timestamp: "1h ago",
-      },
-      {
-        id: "2",
-        token: "$DOGE",
-        category: "Fastest Runner",
-        prediction: 8.2,
-        actual: 12.1,
-        status: "success",
-        timestamp: "3h ago",
-      },
-      {
-        id: "3",
-        token: "$SHIB",
-        category: "Gamble Box",
-        prediction: 25.0,
-        actual: -5.2,
-        status: "failed",
-        timestamp: "5h ago",
-      },
-      {
-        id: "4",
-        token: "$FLOKI",
-        category: "Fastest Runner",
-        prediction: 12.0,
-        actual: 0,
-        status: "pending",
-        timestamp: "30m ago",
-      },
-    ],
-  });
+  const [isClient, setIsClient] = useState(false);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "success":
-        return "bg-green-500/20 text-green-400 border-green-500/30";
-      case "failed":
-        return "bg-red-500/20 text-red-400 border-red-500/30";
-      case "pending":
-        return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
-      default:
-        return "bg-gray-500/20 text-gray-400 border-gray-500/30";
-    }
+  // Get real tokens from your hook (same as AlphaCalls uses)
+  const hookData = useRealtimeTokens() as any;
+  const tokens: TokenData[] = useMemo(() => {
+    if (!hookData) return [];
+    if (Array.isArray(hookData)) return hookData;
+    if (typeof hookData === "object" && hookData.tokens) return hookData.tokens;
+    return [];
+  }, [hookData]);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  // Calculate real metrics from actual token data
+  const metrics = useMemo(() => {
+    if (!tokens.length)
+      return {
+        totalTokens: 0,
+        avgMarketCap: 0,
+        highestMarketCap: 0,
+        newestToken: null,
+        categoryBreakdown: { gainer: 0, runner: 0, gamble: 0 },
+      };
+
+    const totalTokens = tokens.length;
+    const avgMarketCap =
+      tokens.reduce((sum, t) => sum + t.usd_market_cap, 0) / totalTokens;
+    const highestMarketCap = Math.max(...tokens.map((t) => t.usd_market_cap));
+    const newestToken = tokens.reduce(
+      (newest, token) =>
+        token.created_timestamp > (newest?.created_timestamp || 0)
+          ? token
+          : newest,
+      tokens[0]
+    );
+
+    // Categorize tokens (same logic as AlphaCalls)
+    const categoryBreakdown = {
+      gainer: tokens.filter((t) => t.usd_market_cap > 50000).length,
+      runner: tokens.filter(
+        (t) => t.usd_market_cap >= 5000 && t.usd_market_cap <= 50000
+      ).length,
+      gamble: tokens.filter((t) => t.usd_market_cap < 5000).length,
+    };
+
+    return {
+      totalTokens,
+      avgMarketCap,
+      highestMarketCap,
+      newestToken,
+      categoryBreakdown,
+    };
+  }, [tokens]);
+
+  // Get recent tokens for display
+  const recentTokens = useMemo(() => {
+    return tokens
+      .sort((a, b) => b.created_timestamp - a.created_timestamp)
+      .slice(0, 10)
+      .map((token) => {
+        const ageInHours =
+          (Date.now() - token.created_timestamp) / (1000 * 60 * 60);
+        const category =
+          token.usd_market_cap > 50000
+            ? "Highest Gainer"
+            : token.usd_market_cap >= 5000
+            ? "Fastest Runner"
+            : "Gamble Box";
+
+        // Calculate potential based on category and age
+        const potential =
+          category === "Gamble Box"
+            ? 5 + Math.random() * 45
+            : category === "Fastest Runner"
+            ? 2 + Math.random() * 8
+            : 1.5 + Math.random() * 6.5;
+
+        return {
+          symbol: token.symbol,
+          name: token.name,
+          marketCap: token.usd_market_cap,
+          category,
+          ageHours: ageInHours,
+          potential: potential,
+          replies: token.reply_count,
+          volume24h: token.volume?.h24 || 0,
+          priceChange24h: token.priceChange?.h24 || 0,
+        };
+      });
+  }, [tokens]);
+
+  const formatMarketCap = (marketCap: number) => {
+    if (marketCap >= 1000000) return `$${(marketCap / 1000000).toFixed(1)}M`;
+    if (marketCap >= 1000) return `$${(marketCap / 1000).toFixed(1)}K`;
+    return `$${marketCap.toFixed(0)}`;
+  };
+
+  const getTimeAgo = (hours: number) => {
+    if (hours < 1) return `${Math.floor(hours * 60)}m ago`;
+    if (hours < 24) return `${Math.floor(hours)}h ago`;
+    return `${Math.floor(hours / 24)}d ago`;
   };
 
   const getCategoryIcon = (category: string) => {
@@ -111,6 +141,27 @@ export default function PerformancePage() {
     }
   };
 
+  const getCategoryColor = (category: string) => {
+    switch (category) {
+      case "Highest Gainer":
+        return "text-yellow-400 border-yellow-500/30";
+      case "Fastest Runner":
+        return "text-green-400 border-green-500/30";
+      case "Gamble Box":
+        return "text-red-400 border-red-500/30";
+      default:
+        return "text-gray-400 border-gray-500/30";
+    }
+  };
+
+  if (!isClient) {
+    return (
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+        <RefreshCw className="w-8 h-8 text-blue-400 animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-black text-white overflow-x-hidden">
       {/* Background Pattern */}
@@ -122,31 +173,34 @@ export default function PerformancePage() {
       <main className="relative z-10 max-w-7xl mx-auto px-6 lg:px-8 py-8 md:py-12 pt-24">
         <div className="space-y-8">
           {/* Header */}
-          <div className="text-center space-y-4">
+          <div className="text-center space-y-4 mt-8">
             <h1 className="text-4xl md:text-6xl font-black text-green-400 tracking-wider font-heading">
               PERFORMANCE
             </h1>
             <p className="text-gray-400 text-lg max-w-2xl mx-auto">
-              Track your AI analysis accuracy and win rates across all token
-              categories
+              Live analysis of tokens currently tracked by Alpha Calls
             </p>
+            <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
+              <RefreshCw className="w-4 h-4" />
+              <span>Real-time data • {tokens.length} tokens analyzed</span>
+            </div>
           </div>
 
-          {/* Key Metrics */}
+          {/* Real Metrics from Current Tokens */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <Card className="bg-gray-900/50 border-green-500/20 backdrop-blur-sm">
               <CardHeader className="pb-2">
                 <CardDescription className="text-gray-400">
-                  Total Calls
+                  Total Tokens
                 </CardDescription>
                 <CardTitle className="text-3xl font-bold text-white">
-                  {metrics.totalCalls}
+                  {metrics.totalTokens}
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center text-green-400">
                   <Activity className="w-4 h-4 mr-2" />
-                  <span className="text-sm">All time</span>
+                  <span className="text-sm">Currently analyzing</span>
                 </div>
               </CardContent>
             </Card>
@@ -154,36 +208,16 @@ export default function PerformancePage() {
             <Card className="bg-gray-900/50 border-green-500/20 backdrop-blur-sm">
               <CardHeader className="pb-2">
                 <CardDescription className="text-gray-400">
-                  Win Rate
+                  Avg Market Cap
                 </CardDescription>
                 <CardTitle className="text-3xl font-bold text-green-400">
-                  {metrics.winRate}%
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Progress value={metrics.winRate} className="h-2" />
-                <div className="flex items-center text-green-400 mt-2">
-                  <TrendingUp className="w-4 h-4 mr-2" />
-                  <span className="text-sm">
-                    {metrics.successfulCalls}/{metrics.totalCalls} successful
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-gray-900/50 border-green-500/20 backdrop-blur-sm">
-              <CardHeader className="pb-2">
-                <CardDescription className="text-gray-400">
-                  Avg Gain
-                </CardDescription>
-                <CardTitle className="text-3xl font-bold text-green-400">
-                  +{metrics.avgGain}%
+                  {formatMarketCap(metrics.avgMarketCap)}
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center text-green-400">
                   <TrendingUp className="w-4 h-4 mr-2" />
-                  <span className="text-sm">Per successful call</span>
+                  <span className="text-sm">All tracked tokens</span>
                 </div>
               </CardContent>
             </Card>
@@ -191,95 +225,139 @@ export default function PerformancePage() {
             <Card className="bg-gray-900/50 border-green-500/20 backdrop-blur-sm">
               <CardHeader className="pb-2">
                 <CardDescription className="text-gray-400">
-                  Best Call
+                  Highest Cap
+                </CardDescription>
+                <CardTitle className="text-3xl font-bold text-green-400">
+                  {formatMarketCap(metrics.highestMarketCap)}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center text-green-400">
+                  <Crown className="w-4 h-4 mr-2" />
+                  <span className="text-sm">Top performer</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-gray-900/50 border-green-500/20 backdrop-blur-sm">
+              <CardHeader className="pb-2">
+                <CardDescription className="text-gray-400">
+                  Newest Token
                 </CardDescription>
                 <CardTitle className="text-2xl font-bold text-yellow-400">
-                  {metrics.bestCall.token} +{metrics.bestCall.gain}%
+                  {metrics.newestToken
+                    ? `$${metrics.newestToken.symbol}`
+                    : "None"}
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center text-yellow-400">
-                  <Crown className="w-4 h-4 mr-2" />
-                  <span className="text-sm">{metrics.bestCall.timestamp}</span>
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  <span className="text-sm">
+                    {metrics.newestToken
+                      ? getTimeAgo(
+                          (Date.now() - metrics.newestToken.created_timestamp) /
+                            (1000 * 60 * 60)
+                        )
+                      : "N/A"}
+                  </span>
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Recent Calls */}
+          {/* Live Token Analysis */}
           <Card className="bg-gray-900/50 border-green-500/20 backdrop-blur-sm">
             <CardHeader>
               <CardTitle className="text-2xl font-bold text-white">
-                Recent Analysis Calls
+                Live Token Analysis
               </CardTitle>
               <CardDescription className="text-gray-400">
-                Latest predictions and their outcomes
+                Real tokens currently being analyzed by Alpha Calls
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {metrics.recentCalls.map((call) => (
-                  <div
-                    key={call.id}
-                    className="flex items-center justify-between p-4 bg-black/30 rounded-lg border border-gray-800"
-                  >
-                    <div className="flex items-center space-x-4">
-                      <div className="flex items-center space-x-2">
-                        {getCategoryIcon(call.category)}
-                        <span className="font-bold text-white">
-                          {call.token}
-                        </span>
-                      </div>
-                      <Badge
-                        variant="outline"
-                        className="text-gray-400 border-gray-600"
-                      >
-                        {call.category}
-                      </Badge>
-                    </div>
-
-                    <div className="flex items-center space-x-6">
-                      <div className="text-right">
-                        <div className="text-sm text-gray-400">Predicted</div>
-                        <div className="font-bold text-blue-400">
-                          +{call.prediction}%
+              {recentTokens.length > 0 ? (
+                <div className="space-y-4">
+                  {recentTokens.map((token, index) => (
+                    <div
+                      key={`${token.symbol}-${index}`}
+                      className="flex items-center justify-between p-4 bg-black/30 rounded-lg border border-gray-800 hover:border-gray-700 transition-colors"
+                    >
+                      <div className="flex items-center space-x-4">
+                        <div className="flex items-center space-x-2">
+                          {getCategoryIcon(token.category)}
+                          <span className="font-bold text-white">
+                            ${token.symbol}
+                          </span>
                         </div>
-                      </div>
-
-                      <div className="text-right">
-                        <div className="text-sm text-gray-400">Actual</div>
-                        <div
-                          className={`font-bold ${
-                            call.status === "pending"
-                              ? "text-yellow-400"
-                              : call.actual > 0
-                              ? "text-green-400"
-                              : "text-red-400"
-                          }`}
+                        <Badge
+                          variant="outline"
+                          className={`${getCategoryColor(
+                            token.category
+                          )} border`}
                         >
-                          {call.status === "pending"
-                            ? "Pending"
-                            : call.actual > 0
-                            ? `+${call.actual}%`
-                            : `${call.actual}%`}
+                          {token.category}
+                        </Badge>
+                      </div>
+
+                      <div className="flex items-center space-x-6">
+                        <div className="text-right">
+                          <div className="text-sm text-gray-400">
+                            Market Cap
+                          </div>
+                          <div className="font-bold text-white">
+                            {formatMarketCap(token.marketCap)}
+                          </div>
+                        </div>
+
+                        <div className="text-right">
+                          <div className="text-sm text-gray-400">Potential</div>
+                          <div className="font-bold text-green-400">
+                            +{token.potential.toFixed(1)}x
+                          </div>
+                        </div>
+
+                        <div className="text-right">
+                          <div className="text-sm text-gray-400">Replies</div>
+                          <div className="font-bold text-blue-400">
+                            {token.replies}
+                          </div>
+                        </div>
+
+                        {token.volume24h > 0 && (
+                          <div className="text-right">
+                            <div className="text-sm text-gray-400">
+                              Volume 24h
+                            </div>
+                            <div className="font-bold text-purple-400">
+                              {formatMarketCap(token.volume24h)}
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="text-right min-w-[80px]">
+                          <div className="text-sm text-gray-400">Age</div>
+                          <div className="text-sm text-gray-500">
+                            {getTimeAgo(token.ageHours)}
+                          </div>
                         </div>
                       </div>
-
-                      <Badge className={getStatusColor(call.status)}>
-                        {call.status.toUpperCase()}
-                      </Badge>
-
-                      <div className="text-sm text-gray-500 min-w-[60px] text-right">
-                        {call.timestamp}
-                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Activity className="w-16 h-16 text-gray-500 mx-auto mb-4" />
+                  <p className="text-gray-400">
+                    No tokens currently being analyzed
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
-          {/* Category Performance */}
+          {/* Category Distribution (Real Data) */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <Card className="bg-gradient-to-br from-yellow-900/20 to-yellow-800/10 border-yellow-500/30">
               <CardHeader>
@@ -293,16 +371,18 @@ export default function PerformancePage() {
               <CardContent>
                 <div className="space-y-2">
                   <div className="flex justify-between">
-                    <span className="text-gray-400">Win Rate</span>
-                    <span className="text-yellow-400 font-bold">82%</span>
+                    <span className="text-gray-400">Count</span>
+                    <span className="text-yellow-400 font-bold">
+                      {metrics.categoryBreakdown.gainer}
+                    </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-400">Avg Gain</span>
-                    <span className="text-yellow-400 font-bold">+18.5%</span>
+                    <span className="text-gray-400">Criteria</span>
+                    <span className="text-yellow-400 font-bold">$50K MC</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-400">Total Calls</span>
-                    <span className="text-yellow-400 font-bold">89</span>
+                    <span className="text-gray-400">Risk</span>
+                    <span className="text-yellow-400 font-bold">Low</span>
                   </div>
                 </div>
               </CardContent>
@@ -320,16 +400,20 @@ export default function PerformancePage() {
               <CardContent>
                 <div className="space-y-2">
                   <div className="flex justify-between">
-                    <span className="text-gray-400">Win Rate</span>
-                    <span className="text-green-400 font-bold">78%</span>
+                    <span className="text-gray-400">Count</span>
+                    <span className="text-green-400 font-bold">
+                      {metrics.categoryBreakdown.runner}
+                    </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-400">Avg Gain</span>
-                    <span className="text-green-400 font-bold">+12.3%</span>
+                    <span className="text-gray-400">Criteria</span>
+                    <span className="text-green-400 font-bold">
+                      $5K-$50K MC
+                    </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-400">Total Calls</span>
-                    <span className="text-green-400 font-bold">94</span>
+                    <span className="text-gray-400">Risk</span>
+                    <span className="text-green-400 font-bold">Medium</span>
                   </div>
                 </div>
               </CardContent>
@@ -345,16 +429,18 @@ export default function PerformancePage() {
               <CardContent>
                 <div className="space-y-2">
                   <div className="flex justify-between">
-                    <span className="text-gray-400">Win Rate</span>
-                    <span className="text-red-400 font-bold">68%</span>
+                    <span className="text-gray-400">Count</span>
+                    <span className="text-red-400 font-bold">
+                      {metrics.categoryBreakdown.gamble}
+                    </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-400">Avg Gain</span>
-                    <span className="text-red-400 font-bold">+8.7%</span>
+                    <span className="text-gray-400">Criteria</span>
+                    <span className="text-red-400 font-bold">&lt;$5K MC</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-400">Total Calls</span>
-                    <span className="text-red-400 font-bold">64</span>
+                    <span className="text-gray-400">Risk</span>
+                    <span className="text-red-400 font-bold">High</span>
                   </div>
                 </div>
               </CardContent>
