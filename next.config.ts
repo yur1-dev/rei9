@@ -56,9 +56,8 @@ const nextConfig = {
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
     unoptimized: true,
   },
-  experimental: {
-    serverComponentsExternalPackages: [],
-  },
+  // Moved from experimental.serverComponentsExternalPackages to serverExternalPackages
+  serverExternalPackages: [],
 };
 
 export default nextConfig;
